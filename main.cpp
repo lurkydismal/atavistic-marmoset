@@ -1,263 +1,274 @@
-// main.cpp - single-file minimal app
-// Build: see instructions below
 #include <SDL3/SDL.h>
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
-#include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
-#include <bx/math.h>
 
-#include <cstring>
-#include <fstream>
 #include <iostream>
-#include <vector>
 
-#define S(x) ([]() { x; }())
-#define LOG(x) std::cerr << x << "\n"
-using u32 = uint32_t;
+// Log formats
+#define LOG_INFO_FORMAT ""
+#define LOG_WARNING_FORMAT ""
 
-// tiny helpers
-static bgfx::Memory *loadFile(const char *path) {
-  std::ifstream ifs(path, std::ios::binary | std::ios::ate);
-  if (!ifs)
-    return nullptr;
-  auto sz = (size_t)ifs.tellg();
-  ifs.seekg(0);
-  auto mem = (bgfx::Memory *)BGFX_ALLOC(sizeof(bgfx::Memory) + sz + 1);
-  // we'll use bgfx::copy normally, but keep minimal: read then create copy mem
-  std::vector<uint8_t> buf(sz);
-  ifs.read((char *)buf.data(), sz);
-  auto m = bgfx::alloc((uint32_t)sz + 1);
-  memcpy(m->data, buf.data(), sz);
-  m->data[sz] = 0;
-  return m;
+// Function file:line | message
+#define LOG_ERROR_FORMAT                                               \
+    "\"" << __PRETTY_FUNCTION__ << "\"" << " " << __FILE_NAME__ << ":" \
+         << __LINE__ << " | "
+
+#define logError( _message ) \
+    std::cerr << LOG_ERROR_FORMAT << ( _message ) << "\n"
+
+void log( const std::string_view& _message ) {
+    std::cout << LOG_INFO_FORMAT << _message << "\n";
 }
 
-// simple vertex
-struct Vert {
-  float x, y, z;
-  float nx, ny, nz;
+// Constants
+// Log
+static inline constinit const std::string_view g_logInfoPrefix = "INFO: ";
+static inline constinit const std::string_view g_logWarningPrefix = "WARNING: ";
+static inline constinit const std::string_view g_logErrorPrefix = "ERROR: ";
+
+// Vsync
+static inline constinit const std::string_view g_vsyncTypeAsStringOff = "OFF";
+static inline constinit const std::string_view g_vsyncTypeAsStringUnknown =
+    "UNKNOWN";
+
+// Window
+static inline constinit const std::string_view g_defaultWindowName =
+    "atavistic-marmoset";
+
+// Control
+static inline constinit const std::string_view g_controlAsStringUnknown =
+    "UNKNOWN";
+
+// Settings
+static inline constinit const std::string_view g_defaultSettingsVersion = "0.1";
+static inline constinit const std::string_view g_defaultSettingsDescription =
+    "brrr atavistic marmoset";
+static inline constinit const std::string_view g_defaultSettingsContactAddress =
+    "<lurkydismal@duck.com>";
+
+using vsync_t = enum class vsync : uint8_t {
+    off = 0,
+    unknownVsync,
 };
 
-int main(int argc, char **argv) {
-  const char *filename = "t.fbx";
-  S(LOG("Starting minimal viewer"););
+using window_t = struct window {
+    window( const window& ) = default;
+    window( window&& ) = default;
+    ~window() = default;
+    auto operator=( const window& ) -> window& = default;
+    auto operator=( window&& ) -> window& = default;
 
-  // SDL init
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    LOG("SDL_Init failed: " << SDL_GetError());
-    return 1;
-  }
+    static inline constexpr const std::string_view& name = g_defaultWindowName;
+    size_t width = 640;
+    size_t height = 480;
+    size_t desiredFPS = 60;
+    vsync_t vsync = vsync_t::off;
+};
 
-  int ww = 1280, wh = 720;
-  SDL_Window *win = SDL_CreateWindow(
-      "fbx-bgfx-min", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh,
-      SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
-  if (!win) {
-    LOG("CreateWindow failed");
-    return 1;
-  }
+// TODO: Implement input_t
+using control_t = struct control {
+    control( const control& ) = default;
+    control( control&& ) = default;
+    ~control() = default;
+    auto operator=( const control& ) -> control& = default;
+    auto operator=( control&& ) -> control& = default;
 
-  // get native handle for bgfx
-  SDL_SysWMinfo wminfo;
-  SDL_VERSION(&wminfo.version);
-  if (!SDL_GetWindowWMInfo(win, &wminfo)) {
-    LOG("SDL_GetWindowWMInfo failed");
-    return 1;
-  }
-  bgfx::PlatformData pd{};
-#if defined(_WIN32)
-  pd.nwh = wminfo.info.win.window;
-#elif defined(__linux__)
-// X11 or Wayland - try X11 first
-#if defined(SDL_VIDEO_DRIVER_X11)
-  pd.nwh = (void *)(wminfo.info.x11.window);
-  pd.context = nullptr;
-  pd.backBuffer = nullptr;
-#else
-  pd.nwh = (void *)(wminfo.info.wl.surface);
-#endif
-#else
-  pd.nwh = wminfo.info.win.window;
-#endif
+    SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
+    // input_t input;
+};
 
-  // bgfx init
-  bgfx::Init init;
-  init.platformData = pd;
-  init.type = bgfx::RendererType::Count; // auto
-  init.resolution.width = ww;
-  init.resolution.height = wh;
-  init.resolution.reset = BGFX_RESET_VSYNC; // **enable vsync**
-  if (!bgfx::init(init)) {
-    LOG("bgfx::init failed");
-    return 1;
-  }
+// All available controls
+using controls_t = struct controls {
+    controls( const controls& ) = default;
+    controls( controls&& ) = default;
+    ~controls() = default;
+    auto operator=( const controls& ) -> controls& = default;
+    auto operator=( controls&& ) -> controls& = default;
 
-  bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x808080ff, 1.0f,
-                     0);
-  bgfx::setViewRect(0, 0, 0, ww, wh);
+    // Directions
+    control_t up;
+    control_t down;
+    control_t left;
+    control_t right;
+};
 
-  // simple shaders - user must precompile them into shaders/vs_simple.bin and
-  // fs_simple.bin
-  auto vsMem = loadFile("shaders/vs_simple.bin");
-  auto fsMem = loadFile("shaders/fs_simple.bin");
-  if (!vsMem || !fsMem) {
-    LOG("Missing compiled shaders in shaders/*.bin - build shaders (see "
-        "comments)");
-    return 1;
-  }
-  bgfx::ShaderHandle vsh = bgfx::createShader(vsMem);
-  bgfx::ShaderHandle fsh = bgfx::createShader(fsMem);
-  bgfx::ProgramHandle program = bgfx::createProgram(vsh, fsh, true);
+// All available customization
+using settings_t = struct settings {
+    settings( const settings& ) = default;
+    settings( settings&& ) = default;
+    ~settings() = default;
+    auto operator=( const settings& ) -> settings& = default;
+    auto operator=( settings&& ) -> settings& = default;
 
-  // vertex layout
-  bgfx::VertexLayout layout;
-  layout.begin()
-      .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-      .add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float)
-      .end();
+    window_t window;
+    controls_t controls;
+    static inline constexpr const std::string_view& version =
+        g_defaultSettingsVersion;
+    static inline constexpr const std::string_view& identifier = window_t::name;
+    static inline constexpr const std::string_view& description =
+        g_defaultSettingsDescription;
+    static inline constexpr const std::string_view& contactAddress =
+        g_defaultSettingsContactAddress;
+};
 
-  // load model with Assimp
-  Assimp::Importer importer;
-  const aiScene *scene =
-      importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_GenNormals |
-                                      aiProcess_JoinIdenticalVertices);
-  if (!scene) {
-    LOG("Assimp load failed: " << importer.GetErrorString());
-    return 1;
-  }
+// TODO: Implement
+using camera_t = struct camera {
+    camera( const camera& ) = default;
+    camera( camera&& ) = default;
+    ~camera() = default;
+    auto operator=( const camera& ) -> camera& = default;
+    auto operator=( camera&& ) -> camera& = default;
+};
 
-  struct MeshData {
-    bgfx::VertexBufferHandle vb;
-    bgfx::IndexBufferHandle ib;
-    u32 idxCount;
-  };
-  std::vector<MeshData> meshes;
-  meshes.reserve(scene->mNumMeshes);
+using applicationState_t = struct applicationState {
+    applicationState( const applicationState& ) = default;
+    applicationState( applicationState&& ) = default;
+    ~applicationState() = default;
+    auto operator=( const applicationState& ) -> applicationState& = default;
+    auto operator=( applicationState&& ) -> applicationState& = default;
 
-  for (unsigned m = 0; m < scene->mNumMeshes; ++m) {
-    aiMesh *mesh = scene->mMeshes[m];
-    std::vector<Vert> verts;
-    verts.reserve(mesh->mNumVertices);
-    for (unsigned i = 0; i < mesh->mNumVertices; ++i) {
-      aiVector3D p = mesh->mVertices[i];
-      aiVector3D n =
-          mesh->HasNormals() ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
-      verts.push_back({p.x, p.y, p.z, n.x, n.y, n.z});
-    }
-    std::vector<uint32_t> idx;
-    idx.reserve(mesh->mNumFaces * 3);
-    for (unsigned f = 0; f < mesh->mNumFaces; ++f) {
-      aiFace &face = mesh->mFaces[f];
-      if (face.mNumIndices == 3) {
-        idx.push_back(face.mIndices[0]);
-        idx.push_back(face.mIndices[1]);
-        idx.push_back(face.mIndices[2]);
-      }
-    }
-    bgfx::VertexBufferHandle vb = bgfx::createVertexBuffer(
-        bgfx::makeRef(verts.data(), (uint32_t)verts.size() * sizeof(Vert)),
-        layout);
-    bgfx::IndexBufferHandle ib = bgfx::createIndexBuffer(
-        bgfx::makeRef(idx.data(), (uint32_t)idx.size() * sizeof(uint32_t)));
-    meshes.push_back({vb, ib, (u32)idx.size()});
-  }
+    SDL_Window* window = nullptr;
+    SDL_Renderer* renderer = nullptr;
+    settings_t settings;
+    camera_t camera;
+    size_t logicalWidth = 1280;
+    size_t logicalHeight = 720;
+    size_t totalFramesRendered = 0;
+    bool isPaused = false;
+    bool status = false;
+};
 
-  // camera state - camera at (cx,cy,cz), look toward -Z, up +Y
-  float cx = 0.f, cy = 0.f, cz = 3.0f; // cz controls zoom (distance)
-  float yaw = 0.f, pitch = 0.f;
-  const float moveSpeed = 2.0f; // units/sec
-  const float zoomSpeed = 2.0f;
+auto init( applicationState_t* _applicationState ) -> bool {
+    bool l_returnValue = false;
 
-  bool running = true;
-  uint32_t last = SDL_GetTicks();
-  while (running) {
-    // time
-    uint32_t now = SDL_GetTicks();
-    float dt = (now - last) / 1000.0f;
-    last = now;
+    if ( !_applicationState ) {
+        logError( "Invalid argument" );
 
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_EVENT_QUIT)
-        running = false;
-      if (e.type == SDL_EVENT_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
-        running = false;
+        goto EXIT;
     }
 
-    const Uint8 *state = SDL_GetKeyboardState(NULL);
-    // WASD: move XY in camera plane
-    float dx = 0, dy = 0, dz = 0;
-    if (state[SDL_SCANCODE_W])
-      dy += moveSpeed * dt;
-    if (state[SDL_SCANCODE_S])
-      dy -= moveSpeed * dt;
-    if (state[SDL_SCANCODE_A])
-      dx -= moveSpeed * dt;
-    if (state[SDL_SCANCODE_D])
-      dx += moveSpeed * dt;
-    if (state[SDL_SCANCODE_Q])
-      cz -= zoomSpeed * dt; // zoom in
-    if (state[SDL_SCANCODE_E])
-      cz += zoomSpeed * dt; // zoom out
+    {
+        // Generate application state
+        {
+            // Metadata
+            {
+                log( std::format(
+                    "Window name: '{}', Version: '{}', Identifier: '{}'",
+                    _applicationState->settings.window.name,
+                    _applicationState->settings.version,
+                    _applicationState->settings.identifier ) );
 
-    // apply camera XY movement in world coords (simple)
-    cx += dx;
-    cy += dy;
-    // clamp zoom
-    if (cz < 0.1f)
-      cz = 0.1f;
+                if ( !SDL_SetAppMetadata(
+                         std::string( _applicationState->settings.window.name )
+                             .c_str(),
+                         std::string( _applicationState->settings.version )
+                             .c_str(),
+                         std::string( _applicationState->settings.identifier )
+                             .c_str() ) ) {
+                    logError( std::string( "Setting render scale: '%s'" )
+                                  .append( SDL_GetError() ) );
 
-    // handle window resize
-    int neww, newh;
-    SDL_GetWindowSize(win, &neww, &newh);
-    if (neww != ww || newh != wh) {
-      ww = neww;
-      wh = newh;
-      bgfx::reset(ww, wh, BGFX_RESET_VSYNC);
-      bgfx::setViewRect(0, 0, 0, ww, wh);
+                    goto EXIT;
+                }
+            }
+
+            // Setup recources to load
+            {
+                // TODO: Implement
+            }
+
+            // Init SDL sub-systems
+            {
+                SDL_Init( SDL_INIT_VIDEO );
+            }
+
+            // Window and Renderer
+            {
+                if ( !SDL_CreateWindowAndRenderer(
+                         std::string( _applicationState->settings.window.name )
+                             .c_str(),
+                         _applicationState->settings.window.width,
+                         _applicationState->settings.window.height,
+                         ( SDL_WINDOW_INPUT_FOCUS ),
+                         &( _applicationState->window ),
+                         &( _applicationState->renderer ) ) ) {
+                    logError( std::string( "Window or Renderer creation: '%s'" )
+                                  .append( SDL_GetError() ) );
+
+                    goto EXIT;
+                }
+            }
+
+            // Default scale mode
+            {
+                if ( !SDL_SetDefaultTextureScaleMode(
+                         _applicationState->renderer,
+                         SDL_SCALEMODE_NEAREST ) ) {
+                    logError(
+                        std::string( "Setting render nearest scale mode: '%s'" )
+                            .append( SDL_GetError() ) );
+
+                    goto EXIT;
+                }
+            }
+
+            // TODO: Set SDL3 logical resolution
+            // TODO: Set new SDL3 things
+
+            // TODO: Probably reduntant
+            // Scaling
+            {
+                const float l_scaleX =
+                    ( ( float )( _applicationState->settings.window.width ) /
+                      ( float )( _applicationState->logicalWidth ) );
+                const float l_scaleY =
+                    ( ( float )( _applicationState->settings.window.height ) /
+                      ( float )( _applicationState->logicalHeight ) );
+
+                if ( !SDL_SetRenderScale( _applicationState->renderer, l_scaleX,
+                                          l_scaleY ) ) {
+                    logError( std::string( "Setting render scale: '%s'" )
+                                  .append( SDL_GetError() ) );
+
+                    goto EXIT;
+                }
+            }
+
+            // Load resources
+            {
+                if ( !applicationState_t$load( _applicationState ) ) {
+                    logError( "Loading application state" );
+
+                    goto EXIT;
+                }
+            }
+        }
+
+        // Vsync
+        {
+            if ( !vsync$init( _applicationState->settings.window.vsync,
+                              _applicationState->settings.window.desiredFPS,
+                              _applicationState->renderer ) ) {
+                logError( "Initializing Vsync" );
+
+                goto EXIT;
+            }
+        }
+
+        // FPS
+        {
+            if ( !FPS$init( &( _applicationState->totalFramesRendered ) ) ) {
+                logError( "Initializing FPS" );
+
+                goto EXIT;
+            }
+        }
+
+        l_returnValue = true;
     }
 
-    // view/proj
-    float view[16];
-    float proj[16];
-    // look from (cx,cy,cz) to (cx,cy,0)
-    float at[3] = {cx, cy, 0.f};
-    float eye[3] = {cx, cy, cz};
-    float up[3] = {0.f, 1.f, 0.f};
-    bx::mtxLookAt(view, eye, at, up);
-    bx::mtxProj(proj, 60.0f, float(ww) / float(wh), 0.1f, 1000.0f,
-                bgfx::getCaps()->homogeneousDepth);
+EXIT:
+    return ( l_returnValue );
+}
 
-    bgfx::setViewTransform(0, view, proj);
-
-    bgfx::touch(0); // clear/view
-
-    // submit meshes
-    for (auto &msh : meshes) {
-      float mtx[16];
-      bx::mtxIdentity(mtx);
-      // translate by 0,0,0 (model space as loaded)
-      bgfx::setTransform(mtx);
-      bgfx::setVertexBuffer(0, msh.vb);
-      bgfx::setIndexBuffer(msh.ib);
-      bgfx::setState(BGFX_STATE_DEFAULT);
-      bgfx::submit(0, program);
-    }
-
-    bgfx::frame(); // let bgfx render - no fps lock (vsync on)
-  }
-
-  // cleanup
-  for (auto &m : meshes) {
-    bgfx::destroy(m.vb);
-    bgfx::destroy(m.ib);
-  }
-  bgfx::destroy(program);
-  bgfx::shutdown();
-
-  SDL_DestroyWindow(win);
-  SDL_Quit();
-  return 0;
+auto main() -> int {
+    return ( 0 );
 }
