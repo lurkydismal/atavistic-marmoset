@@ -1,44 +1,21 @@
 #include <SDL3/SDL.h>
 
+#include <chrono>
 #include <iostream>
-
-// Log formats
-#define LOG_INFO_FORMAT ""
-#define LOG_WARNING_FORMAT ""
-
-// Function file:line | message
-#define LOG_ERROR_FORMAT                                               \
-    "\"" << __PRETTY_FUNCTION__ << "\"" << " " << __FILE_NAME__ << ":" \
-         << __LINE__ << " | "
-
-#define logError( _message ) \
-    std::cerr << LOG_ERROR_FORMAT << ( _message ) << "\n"
-
-void log( const std::string_view& _message ) {
-    std::cout << LOG_INFO_FORMAT << _message << "\n";
-}
+#include <stop_token>
+#include <string_view>
+#include <thread>
 
 namespace {
+
+// Function-like macros
+// Universal
+#define STRINGIFY( _value ) #_value
+#define MACRO_TO_STRING( _macro ) STRINGIFY( _macro )
 
 // Constants
 // Universal
 static inline constinit const size_t g_oneSecondInMilliseconds = 1000;
-
-template < typename T >
-static inline constexpr auto millisecondsToNanoseconds( const T _milliseconds )
-    -> size_t {
-    return ( _milliseconds * g_oneSecondInMilliseconds );
-}
-
-// Log
-static inline constinit const std::string_view g_logInfoPrefix = "INFO: ";
-static inline constinit const std::string_view g_logWarningPrefix = "WARNING: ";
-static inline constinit const std::string_view g_logErrorPrefix = "ERROR: ";
-
-// Vsync
-static inline constinit const std::string_view g_vsyncTypeAsStringOff = "OFF";
-static inline constinit const std::string_view g_vsyncTypeAsStringUnknown =
-    "UNKNOWN";
 
 // Window
 static inline constinit const std::string_view g_defaultWindowName =
@@ -50,10 +27,46 @@ static inline constinit const std::string_view g_controlAsStringUnknown =
 
 // Settings
 static inline constinit const std::string_view g_defaultSettingsVersion = "0.1";
-static inline constinit const std::string_view g_defaultSettingsDescription =
-    "brrr atavistic marmoset";
-static inline constinit const std::string_view g_defaultSettingsContactAddress =
-    "<lurkydismal@duck.com>";
+
+template < typename T >
+static inline constexpr auto millisecondsToNanoseconds( const T _milliseconds )
+    -> size_t {
+    return ( _milliseconds * g_oneSecondInMilliseconds );
+}
+
+namespace log {
+
+namespace {
+
+// Prefixes
+inline constinit const std::string_view g_logInfoPrefix = "INFO: ";
+inline constinit const std::string_view g_logWarningPrefix = "WARNING: ";
+inline constinit const std::string_view g_logErrorPrefix = "ERROR: ";
+
+} // namespace
+
+void info( const std::string_view& _message ) {
+    std::cout << g_logInfoPrefix << _message << "\n";
+}
+
+void warningg( const std::string_view& _message ) {
+    std::cerr << g_logWarningPrefix << _message << "\n";
+}
+
+// Function file:line | message
+inline void _error( const std::string_view& _message,
+                    const char* _functionName,
+                    const char* _fileName,
+                    const char* _lineNumber ) {
+    std::cerr << g_logErrorPrefix << "\"" << _functionName << "\"" << " "
+              << _fileName << ":" << _lineNumber << " | " << _message << "\n";
+}
+
+#define error( _message )                                     \
+    _error( ( _message ), __PRETTY_FUNCTION__, __FILE_NAME__, \
+            MACRO_TO_STRING( __LINE__ ) )
+
+} // namespace log
 
 enum class vsync_t : uint8_t {
     off = 0,
@@ -62,8 +75,12 @@ enum class vsync_t : uint8_t {
 
 namespace vsync {
 
+namespace {
+
 vsync_t g_vsyncType;
 float g_desiredFPS = 0;
+
+} // namespace
 
 static struct timespec g_sleepTime, g_startTime, g_endTime;
 
@@ -73,13 +90,13 @@ auto init( const vsync_t _vsyncType,
     bool l_returnValue = false;
 
     if ( !_renderer ) {
-        logError( "Invalid argument" );
+        log::error( "Invalid argument" );
 
         goto EXIT;
     }
 
     if ( g_desiredFPS ) {
-        logError( "Alraedy initialized" );
+        log::error( "Alraedy initialized" );
 
         goto EXIT;
     }
@@ -97,8 +114,8 @@ auto init( const vsync_t _vsyncType,
                 _renderer, SDL_WINDOW_SURFACE_VSYNC_DISABLED );
 
             if ( !l_returnValue ) {
-                logError( std ::string( "Setting renderer vsync: '%s'" ) +
-                          SDL_GetError() );
+                log::error( std ::string( "Setting renderer vsync: '%s'" ) +
+                            SDL_GetError() );
 
                 goto EXIT;
             }
@@ -165,7 +182,31 @@ using window_t = struct window {
     vsync_t vsync = vsync_t::off;
 };
 
-// TODO: Implement input_t
+enum class direction_t : uint8_t {
+    none = 0,
+    up = 8,
+    right = 6,
+    down = 2,
+    left = 4,
+};
+
+enum class button_t : uint8_t {
+    none = 0,
+};
+
+using input_t = struct input {
+    input() = default;
+    input( const input& ) = default;
+    input( input&& ) = default;
+    ~input() = default;
+    auto operator=( const input& ) -> input& = default;
+    auto operator=( input&& ) -> input& = default;
+
+    direction_t direction = direction_t::none;
+    button_t button = button_t::none;
+    size_t duration = 0;
+};
+
 using control_t = struct control {
     control() = default;
     control( const control& ) = default;
@@ -175,7 +216,7 @@ using control_t = struct control {
     auto operator=( control&& ) -> control& = default;
 
     SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
-    // input_t input;
+    input_t input;
 };
 
 // All available controls
@@ -208,10 +249,6 @@ using settings_t = struct settings {
     static inline constexpr const std::string_view& version =
         g_defaultSettingsVersion;
     static inline constexpr const std::string_view& identifier = window_t::name;
-    static inline constexpr const std::string_view& description =
-        g_defaultSettingsDescription;
-    static inline constexpr const std::string_view& contactAddress =
-        g_defaultSettingsContactAddress;
 };
 
 // TODO: Implement
@@ -226,11 +263,17 @@ using camera_t = struct camera {
 
 using applicationState_t = struct applicationState {
     applicationState() = default;
-    applicationState( const applicationState& ) = default;
-    applicationState( applicationState&& ) = default;
+    applicationState( const applicationState& ) = delete;
+    applicationState( applicationState&& ) = delete;
     ~applicationState() = default;
-    auto operator=( const applicationState& ) -> applicationState& = default;
-    auto operator=( applicationState&& ) -> applicationState& = default;
+    auto operator=( const applicationState& ) -> applicationState& = delete;
+    auto operator=( applicationState&& ) -> applicationState& = delete;
+
+    // TODO: Implement
+    auto load() -> bool { return ( true ); }
+
+    // TODO: Implement
+    auto unload() -> bool { return ( true ); }
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
@@ -238,10 +281,58 @@ using applicationState_t = struct applicationState {
     camera_t camera;
     size_t logicalWidth = 1280;
     size_t logicalHeight = 720;
-    size_t totalFramesRendered = 0;
+    std::atomic< size_t > totalFramesRendered = 0;
     bool isPaused = false;
     bool status = false;
 };
+
+namespace FPS {
+
+namespace {
+
+std::jthread g_loggerThread;
+
+void logger( std::stop_token _stoken, std::atomic< size_t >& _frameCount ) {
+    using clock = std::chrono::steady_clock;
+    using namespace std::chrono_literals;
+
+    auto l_lastTime = clock::now();
+
+    while ( !_stoken.stop_requested() ) {
+        std::this_thread::sleep_for( 1s );
+
+        auto l_now = clock::now();
+        auto l_count = _frameCount.exchange( 0 );
+
+        auto l_duration =
+            std::chrono::duration_cast< std::chrono::milliseconds >(
+                l_now - l_lastTime )
+                .count();
+        double l_fps = l_count * 1000.0 / l_duration;
+
+        log::info( std::format( "FPS: {}", l_fps ) );
+
+        l_lastTime = l_now;
+    }
+
+    log::info( "FPS logger stopped." );
+}
+
+} // namespace
+
+void init( std::atomic< size_t >& _frameCount ) {
+    g_loggerThread = std::jthread( logger, std::ref( _frameCount ) );
+}
+
+void quit() {
+    g_loggerThread.request_stop();
+
+    if ( g_loggerThread.joinable() ) {
+        g_loggerThread.join();
+    }
+}
+
+} // namespace FPS
 
 auto init( applicationState_t& _applicationState ) -> bool {
     bool l_returnValue = false;
@@ -251,7 +342,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
         {
             // Metadata
             {
-                log( std::format(
+                log::info( std::format(
                     "Window name: '{}', Version: '{}', Identifier: '{}'",
                     _applicationState.settings.window.name,
                     _applicationState.settings.version,
@@ -264,8 +355,8 @@ auto init( applicationState_t& _applicationState ) -> bool {
                              .c_str(),
                          std::string( _applicationState.settings.identifier )
                              .c_str() ) ) {
-                    logError( std::string( "Setting render scale: '%s'" ) +
-                              SDL_GetError() );
+                    log::error( std::string( "Setting render scale: '%s'" ) +
+                                SDL_GetError() );
 
                     goto EXIT;
                 }
@@ -277,9 +368,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
             }
 
             // Init SDL sub-systems
-            {
-                SDL_Init( SDL_INIT_VIDEO );
-            }
+            SDL_Init( SDL_INIT_VIDEO );
 
             // Window and Renderer
             {
@@ -291,7 +380,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                          ( SDL_WINDOW_INPUT_FOCUS ),
                          &( _applicationState.window ),
                          &( _applicationState.renderer ) ) ) {
-                    logError(
+                    log::error(
                         std::string( "Window or Renderer creation: '%s'" ) +
                         SDL_GetError() );
 
@@ -300,20 +389,16 @@ auto init( applicationState_t& _applicationState ) -> bool {
             }
 
             // Default scale mode
-            {
-                if ( !SDL_SetDefaultTextureScaleMode(
-                         _applicationState.renderer, SDL_SCALEMODE_NEAREST ) ) {
-                    logError( std::string(
-                                  "Setting render nearest scale mode: '%s'" ) +
-                              SDL_GetError() );
+            if ( !SDL_SetDefaultTextureScaleMode( _applicationState.renderer,
+                                                  SDL_SCALEMODE_NEAREST ) ) {
+                log::error(
+                    std::string( "Setting render nearest scale mode: '%s'" ) +
+                    SDL_GetError() );
 
-                    goto EXIT;
-                }
+                goto EXIT;
             }
 
             // TODO: Set SDL3 logical resolution
-            // TODO: Set new SDL3 things
-
             // TODO: Probably reduntant
             // Scaling
             {
@@ -326,42 +411,35 @@ auto init( applicationState_t& _applicationState ) -> bool {
 
                 if ( !SDL_SetRenderScale( _applicationState.renderer, l_scaleX,
                                           l_scaleY ) ) {
-                    logError( std::string( "Setting render scale: '%s'" ) +
-                              SDL_GetError() );
+                    log::error( std::string( "Setting render scale: '%s'" ) +
+                                SDL_GetError() );
 
                     goto EXIT;
                 }
             }
 
-            // Load resources
-            {
-                if ( !applicationState_t$load( _applicationState ) ) {
-                    logError( "Loading application state" );
+            // TODO: Set new SDL3 things
 
-                    goto EXIT;
-                }
+            // Load resources
+            if ( !_applicationState.load() ) {
+                log::error( "Loading application state" );
+
+                goto EXIT;
             }
         }
 
         // Vsync
-        {
-            if ( !vsync::init( _applicationState.settings.window.vsync,
-                               _applicationState.settings.window.desiredFPS,
-                               _applicationState.renderer ) ) {
-                logError( "Initializing Vsync" );
+        if ( !vsync::init( _applicationState.settings.window.vsync,
+                           _applicationState.settings.window.desiredFPS,
+                           _applicationState.renderer ) ) {
+            log::error( "Initializing Vsync" );
 
-                goto EXIT;
-            }
+            goto EXIT;
         }
 
         // FPS
-        {
-            if ( !FPS$init( &( _applicationState.totalFramesRendered ) ) ) {
-                logError( "Initializing FPS" );
-
-                goto EXIT;
-            }
-        }
+        // Does not fail
+        FPS::init( _applicationState.totalFramesRendered );
 
         l_returnValue = true;
     }
@@ -370,12 +448,61 @@ EXIT:
     return ( l_returnValue );
 }
 
+void quit( applicationState_t& _applicationState ) {
+    // Report if SDL error occured before quitting
+    {
+        const std::string_view& l_errorMessage = SDL_GetError();
+
+        if ( !( l_errorMessage.empty() ) ) {
+            log::error(
+                std::format( "Application quit: '{}'", l_errorMessage ) );
+        }
+    }
+
+    // FPS
+    FPS::quit();
+
+    // Vsync
+    vsync::quit();
+
+    // Application state
+    {
+        if ( !_applicationState.unload() ) {
+            log::error( "Unloading application state" );
+        }
+
+        // Report if SDL error occured during quitting
+        {
+            const std::string_view& l_errorMessage = SDL_GetError();
+
+            if ( !( l_errorMessage.empty() ) ) {
+                log::error( std::format( "Application shutdown: '{}'",
+                                         l_errorMessage ) );
+            }
+        }
+
+        if ( _applicationState.renderer ) {
+            SDL_DestroyRenderer( _applicationState.renderer );
+        }
+
+        if ( _applicationState.window ) {
+            SDL_DestroyWindow( _applicationState.window );
+        }
+    }
+
+    SDL_Quit();
+}
+
 } // namespace
 
 auto main() -> int {
     applicationState_t l_applicationState;
 
     init( l_applicationState );
+
+    std::this_thread::sleep_for( std::chrono::seconds( 5 ) );
+
+    quit( l_applicationState );
 
     return ( 0 );
 }

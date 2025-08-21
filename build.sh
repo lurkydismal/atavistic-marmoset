@@ -1,4 +1,6 @@
 #!/bin/bash
+clear
+
 # shaderc -f vs_simple.vert -o vs_simple.hpp --type vertex --platform linux --platform 120 --bin2c
 # shaderc -f fs_simple.frag -o fs_simple.hpp --type fragment --platform linux --platform 120 --bin2c
 
