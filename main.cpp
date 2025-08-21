@@ -1,9 +1,10 @@
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_scancode.h>
 
-#include <chrono>
+#include <bitset>
+#include <cstdlib>
 #include <iostream>
-#include <stop_token>
-#include <string_view>
+#include <ranges>
 #include <thread>
 
 namespace {
@@ -89,14 +90,14 @@ auto init( const vsync_t _vsyncType,
            SDL_Renderer* _renderer ) -> bool {
     bool l_returnValue = false;
 
-    if ( !_renderer ) {
-        log::error( "Invalid argument" );
+    if ( g_desiredFPS ) {
+        log::error( "Alraedy initialized" );
 
         goto EXIT;
     }
 
-    if ( g_desiredFPS ) {
-        log::error( "Alraedy initialized" );
+    if ( !_renderer ) {
+        log::error( "Invalid argument" );
 
         goto EXIT;
     }
@@ -185,14 +186,54 @@ using window_t = struct window {
 enum class direction_t : uint8_t {
     none = 0,
     up = 8,
-    right = 6,
     down = 2,
     left = 4,
+    right = 6,
 };
+
+inline auto operator|=( direction_t& _lhs, direction_t _rhs ) -> direction_t& {
+    _lhs = static_cast< direction_t >(
+        static_cast< std::underlying_type_t< direction_t > >( _lhs ) |
+        static_cast< std::underlying_type_t< direction_t > >( _rhs ) );
+
+    return ( _lhs );
+}
+
+inline auto operator|( direction_t _lhs, direction_t _rhs ) -> direction_t {
+    return ( static_cast< direction_t >(
+        static_cast< std::underlying_type_t< direction_t > >( _lhs ) |
+        static_cast< std::underlying_type_t< direction_t > >( _rhs ) ) );
+}
+
+inline auto operator&( direction_t _lhs, direction_t _rhs ) -> direction_t {
+    return ( static_cast< direction_t >(
+        static_cast< std::underlying_type_t< direction_t > >( _lhs ) &
+        static_cast< std::underlying_type_t< direction_t > >( _rhs ) ) );
+}
 
 enum class button_t : uint8_t {
     none = 0,
 };
+
+inline auto operator|=( button_t& _lhs, button_t _rhs ) -> button_t& {
+    _lhs = static_cast< button_t >(
+        static_cast< std::underlying_type_t< button_t > >( _lhs ) |
+        static_cast< std::underlying_type_t< button_t > >( _rhs ) );
+
+    return ( _lhs );
+}
+
+inline auto operator|( button_t _lhs, button_t _rhs ) -> button_t {
+    return ( static_cast< button_t >(
+        static_cast< std::underlying_type_t< button_t > >( _lhs ) |
+        static_cast< std::underlying_type_t< button_t > >( _rhs ) ) );
+}
+
+inline auto operator&( button_t _lhs, button_t _rhs ) -> button_t {
+    return ( static_cast< button_t >(
+        static_cast< std::underlying_type_t< button_t > >( _lhs ) &
+        static_cast< std::underlying_type_t< button_t > >( _rhs ) ) );
+}
 
 using input_t = struct input {
     input() = default;
@@ -215,6 +256,10 @@ using control_t = struct control {
     auto operator=( const control& ) -> control& = default;
     auto operator=( control&& ) -> control& = default;
 
+    inline constexpr auto check( const SDL_Scancode _scancode ) -> bool {
+        return ( scancode == _scancode );
+    }
+
     SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
     input_t input;
 };
@@ -227,6 +272,21 @@ using controls_t = struct controls {
     ~controls() = default;
     auto operator=( const controls& ) -> controls& = default;
     auto operator=( controls&& ) -> controls& = default;
+
+    inline constexpr auto get( const SDL_Scancode _scancode ) -> control_t& {
+        if ( up.check( _scancode ) ) {
+            return ( up );
+
+        } else if ( down.check( _scancode ) ) {
+            return ( down );
+
+        } else if ( left.check( _scancode ) ) {
+            return ( left );
+
+        } else if ( right.check( _scancode ) ) {
+            return ( right );
+        }
+    }
 
     // Directions
     control_t up;
@@ -259,31 +319,6 @@ using camera_t = struct camera {
     ~camera() = default;
     auto operator=( const camera& ) -> camera& = default;
     auto operator=( camera&& ) -> camera& = default;
-};
-
-using applicationState_t = struct applicationState {
-    applicationState() = default;
-    applicationState( const applicationState& ) = delete;
-    applicationState( applicationState&& ) = delete;
-    ~applicationState() = default;
-    auto operator=( const applicationState& ) -> applicationState& = delete;
-    auto operator=( applicationState&& ) -> applicationState& = delete;
-
-    // TODO: Implement
-    auto load() -> bool { return ( true ); }
-
-    // TODO: Implement
-    auto unload() -> bool { return ( true ); }
-
-    SDL_Window* window = nullptr;
-    SDL_Renderer* renderer = nullptr;
-    settings_t settings;
-    camera_t camera;
-    size_t logicalWidth = 1280;
-    size_t logicalHeight = 720;
-    std::atomic< size_t > totalFramesRendered = 0;
-    bool isPaused = false;
-    bool status = false;
 };
 
 namespace FPS {
@@ -333,6 +368,33 @@ void quit() {
 }
 
 } // namespace FPS
+
+namespace runtime {
+
+using applicationState_t = struct applicationState {
+    applicationState() = default;
+    applicationState( const applicationState& ) = delete;
+    applicationState( applicationState&& ) = delete;
+    ~applicationState() = default;
+    auto operator=( const applicationState& ) -> applicationState& = delete;
+    auto operator=( applicationState&& ) -> applicationState& = delete;
+
+    // TODO: Implement
+    auto load() -> bool { return ( true ); }
+
+    // TODO: Implement
+    auto unload() -> bool { return ( true ); }
+
+    SDL_Window* window = nullptr;
+    SDL_Renderer* renderer = nullptr;
+    settings_t settings;
+    camera_t camera;
+    size_t logicalWidth = 1280;
+    size_t logicalHeight = 720;
+    std::atomic< size_t > totalFramesRendered = 0;
+    bool isPaused = false;
+    bool status = false;
+};
 
 auto init( applicationState_t& _applicationState ) -> bool {
     bool l_returnValue = false;
@@ -493,16 +555,208 @@ void quit( applicationState_t& _applicationState ) {
     SDL_Quit();
 }
 
+using event_t = SDL_Event;
+
+namespace {
+
+auto onWindowResize( applicationState_t& _applicationState,
+                     const float _width,
+                     const float _height ) -> bool {
+    bool l_returnValue = false;
+
+    {
+        static size_t l_lastResizeFrame = 0;
+        const size_t l_totalFramesRendered =
+            _applicationState.totalFramesRendered;
+
+        if ( l_lastResizeFrame < l_totalFramesRendered ) {
+            const float l_logicalWidth = _applicationState.logicalWidth;
+            const float l_logicalHeigth = _applicationState.logicalHeight;
+
+            const float l_scaleX = ( _width / l_logicalWidth );
+            const float l_scaleY = ( _height / l_logicalHeigth );
+
+            if ( !SDL_SetRenderScale( _applicationState.renderer, l_scaleX,
+                                      l_scaleY ) ) {
+                l_returnValue = false;
+
+                log::error( std::format( "Setting render scale: '{}'",
+                                         SDL_GetError() ) );
+
+                goto EXIT;
+            }
+        }
+
+        l_lastResizeFrame = l_totalFramesRendered;
+
+        l_returnValue = true;
+    }
+
+EXIT:
+    return ( l_returnValue );
+}
+
+auto handleKeyboardState( applicationState_t& _applicationState ) -> bool {
+    bool l_returnValue = false;
+
+    {
+        static size_t l_lastInputFrame = 0;
+        const size_t l_totalFramesRendered =
+            _applicationState.totalFramesRendered;
+
+        if ( l_lastInputFrame < l_totalFramesRendered ) {
+            input_t l_input;
+
+            {
+                std::bitset< SDL_SCANCODE_COUNT > l_keysState{};
+
+                constexpr const size_t l_SDLScancodeFirst =
+                    ( SDL_SCANCODE_UNKNOWN + 1 );
+
+                // Build keys state
+                {
+                    std::bitset< SDL_SCANCODE_COUNT >& l_temp = l_keysState;
+
+                    int l_keysAmount = 0;
+                    const bool* l_keysState =
+                        SDL_GetKeyboardState( &l_keysAmount );
+
+                    __builtin_assume( l_keysAmount == SDL_SCANCODE_COUNT );
+
+                    for ( size_t _index : std::views::iota(
+                              l_SDLScancodeFirst, ( size_t )l_keysAmount ) ) {
+                        l_temp.set( l_keysState[ _index ] );
+                    }
+                }
+
+                if ( l_keysState.any() ) {
+                    for ( size_t _index : std::views::iota(
+                              l_SDLScancodeFirst, l_keysState.size() ) ) {
+                        // If pressed
+                        if ( l_keysState.test( _index ) ) {
+                            auto l_scancode = ( SDL_Scancode )_index;
+
+                            const control_t& l_control =
+                                _applicationState.settings.controls.get(
+                                    l_scancode );
+
+                            if ( l_control.scancode != SDL_SCANCODE_UNKNOWN ) {
+                                l_input.direction |= l_control.input.direction;
+                                l_input.button |= l_control.input.button;
+                            }
+                        }
+                    }
+                }
+            }
+            // TODO: Set current user input in application state
+        }
+
+        l_lastInputFrame = l_totalFramesRendered;
+
+        l_returnValue = true;
+    }
+
+    return ( l_returnValue );
+}
+
+} // namespace
+
+auto event( applicationState_t& _applicationState, const event_t& _event )
+    -> bool {
+    bool l_returnValue = false;
+
+    {
+        const bool l_isEventEmpty = ( _event.type == 0 );
+
+        if ( l_isEventEmpty ) {
+            l_returnValue = handleKeyboardState( _applicationState );
+
+            if ( !l_returnValue ) {
+                log::error( "Handling keyboard state" );
+
+                goto EXIT;
+            }
+
+        } else {
+            switch ( _event.type ) {
+                case SDL_EVENT_QUIT: {
+                    _applicationState.status = true;
+
+                    l_returnValue = false;
+
+                    goto EXIT;
+                }
+
+                case SDL_EVENT_WINDOW_RESIZED: {
+                    const float l_newWidth = _event.window.data1;
+                    const float l_newHeight = _event.window.data2;
+
+                    l_returnValue = onWindowResize( _applicationState,
+                                                    l_newWidth, l_newHeight );
+
+                    if ( !l_returnValue ) {
+                        log::error( "Handling window resize" );
+
+                        goto EXIT;
+                    }
+
+                    break;
+                }
+
+                default: {
+                }
+            }
+        }
+
+        l_returnValue = true;
+    }
+
+EXIT:
+    return ( l_returnValue );
+}
+
+} // namespace runtime
+
 } // namespace
 
 auto main() -> int {
-    applicationState_t l_applicationState;
+    runtime::applicationState_t l_applicationState;
 
-    init( l_applicationState );
+    {
+        if ( !runtime::init( l_applicationState ) ) {
+            goto EXIT;
+        }
 
-    std::this_thread::sleep_for( std::chrono::seconds( 5 ) );
+        for ( ;; ) {
+            SDL_PumpEvents();
 
-    quit( l_applicationState );
+            runtime::event_t l_event{};
 
-    return ( 0 );
+            while ( SDL_PollEvent( &l_event ) ) {
+                if ( !runtime::event( l_applicationState, l_event ) ) {
+                    goto EXIT;
+                }
+            }
+
+            // NULL means last event on current frame
+            if ( !runtime::event( l_applicationState, {} ) ) {
+                break;
+            }
+
+            // TODO: Implement
+#if 0
+        l_returnValue = iterate( l_applicationState );
+
+        if ( !l_returnValue ) {
+            break;
+        }
+#endif
+        }
+    }
+
+EXIT:
+    runtime::quit( l_applicationState );
+
+    return ( ( l_applicationState.status ) ? ( EXIT_SUCCESS )
+                                           : ( EXIT_FAILURE ) );
 }
