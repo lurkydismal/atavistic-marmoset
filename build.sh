@@ -17,6 +17,7 @@ bear -- ccache clang++ \
     -Wextra \
     -Wno-gcc-compat -Wno-incompatible-pointer-types-discards-qualifiers \
     main.cpp \
+    -D DEBUG \
     -Og -ggdb3 \
     -fno-rtti -fno-exceptions -fno-threadsafe-statics \
     -fno-unwind-tables \

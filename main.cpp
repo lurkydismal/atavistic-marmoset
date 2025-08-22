@@ -1,8 +1,6 @@
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_scancode.h>
 
 #include <bitset>
-#include <cstdlib>
 #include <iostream>
 #include <ranges>
 #include <thread>
@@ -17,6 +15,7 @@ namespace {
 // Constants
 // Universal
 static inline constinit const size_t g_oneSecondInMilliseconds = 1000;
+static inline constinit const size_t g_oneMillisecondInNanoseconds = 1000000;
 
 // Window
 static inline constinit const std::string_view g_defaultWindowName =
@@ -32,7 +31,7 @@ static inline constinit const std::string_view g_defaultSettingsVersion = "0.1";
 template < typename T >
 static inline constexpr auto millisecondsToNanoseconds( const T _milliseconds )
     -> size_t {
-    return ( _milliseconds * g_oneSecondInMilliseconds );
+    return ( _milliseconds * g_oneMillisecondInNanoseconds );
 }
 
 namespace log {
@@ -40,17 +39,31 @@ namespace log {
 namespace {
 
 // Prefixes
+#if defined( DEBUG )
+
+inline constinit const std::string_view g_logDebugPrefix = "DEBUG: ";
+
+#endif
+
 inline constinit const std::string_view g_logInfoPrefix = "INFO: ";
 inline constinit const std::string_view g_logWarningPrefix = "WARNING: ";
 inline constinit const std::string_view g_logErrorPrefix = "ERROR: ";
 
 } // namespace
 
+void debug( const std::string_view& _message ) {
+#if defined( DEBUG )
+
+    std::cout << g_logDebugPrefix << _message << "\n";
+
+#endif
+}
+
 void info( const std::string_view& _message ) {
     std::cout << g_logInfoPrefix << _message << "\n";
 }
 
-void warningg( const std::string_view& _message ) {
+void warning( const std::string_view& _message ) {
     std::cerr << g_logWarningPrefix << _message << "\n";
 }
 
@@ -74,11 +87,12 @@ enum class vsync_t : uint8_t {
     unknownVsync,
 };
 
+// Software vsync implementation
 namespace vsync {
 
 namespace {
 
-vsync_t g_vsyncType;
+vsync_t g_vsyncType = vsync_t::unknownVsync;
 float g_desiredFPS = 0;
 
 } // namespace
@@ -115,12 +129,18 @@ auto init( const vsync_t _vsyncType,
                 _renderer, SDL_WINDOW_SURFACE_VSYNC_DISABLED );
 
             if ( !l_returnValue ) {
-                log::error( std ::string( "Setting renderer vsync: '%s'" ) +
-                            SDL_GetError() );
+                log::error( std ::format( "Setting renderer vsync: '{}'",
+                                          SDL_GetError() ) );
 
                 goto EXIT;
             }
         }
+
+        log::info(
+            std ::format( "Setting renderer vsync to {} FPS", _desiredFPS ) );
+
+        log::debug( std ::format( "Vsync sleep time set to {} nanoseconds",
+                                  g_sleepTime.tv_nsec ) );
 
         l_returnValue = true;
     }
@@ -185,10 +205,10 @@ using window_t = struct window {
 
 enum class direction_t : uint8_t {
     none = 0,
-    up = 8,
-    down = 2,
-    left = 4,
-    right = 6,
+    up = 0b1,
+    down = 0b10,
+    left = 0b100,
+    right = 0b1000,
 };
 
 inline auto operator|=( direction_t& _lhs, direction_t _rhs ) -> direction_t& {
@@ -273,7 +293,8 @@ using controls_t = struct controls {
     auto operator=( const controls& ) -> controls& = default;
     auto operator=( controls&& ) -> controls& = default;
 
-    inline constexpr auto get( const SDL_Scancode _scancode ) -> control_t& {
+    inline constexpr auto get( const SDL_Scancode _scancode )
+        -> const control_t {
         if ( up.check( _scancode ) ) {
             return ( up );
 
@@ -286,6 +307,8 @@ using controls_t = struct controls {
         } else if ( right.check( _scancode ) ) {
             return ( right );
         }
+
+        return {};
     }
 
     // Directions
@@ -327,27 +350,35 @@ namespace {
 
 std::jthread g_loggerThread;
 
-void logger( std::stop_token _stoken, std::atomic< size_t >& _frameCount ) {
+void logger( const std::stop_token& _stopToken,
+             std::atomic< size_t >& _frameCount ) {
     using clock = std::chrono::steady_clock;
     using namespace std::chrono_literals;
 
-    auto l_lastTime = clock::now();
+    auto l_timeLast = clock::now();
 
-    while ( !_stoken.stop_requested() ) {
+    while ( !_stopToken.stop_requested() ) {
         std::this_thread::sleep_for( 1s );
 
-        auto l_now = clock::now();
-        auto l_count = _frameCount.exchange( 0 );
+        const auto l_timeNow = clock::now();
 
-        auto l_duration =
-            std::chrono::duration_cast< std::chrono::milliseconds >(
-                l_now - l_lastTime )
-                .count();
-        double l_fps = l_count * 1000.0 / l_duration;
+        {
+            const auto l_framesCount = _frameCount.exchange( 0 );
 
-        log::info( std::format( "FPS: {}", l_fps ) );
+            const auto l_frameDuration = ( l_timeNow - l_timeLast );
+            const std::chrono::duration< double > l_frameDurationInSeconds =
+                l_frameDuration;
 
-        l_lastTime = l_now;
+            double l_FPS = 0;
+
+            if ( l_frameDurationInSeconds > 0s ) {
+                l_FPS = ( l_framesCount / l_frameDurationInSeconds.count() );
+            }
+
+            log::info( std::format( "FPS: {:.2f}", l_FPS ) );
+        }
+
+        l_timeLast = l_timeNow;
     }
 
     log::info( "FPS logger stopped." );
@@ -389,6 +420,7 @@ using applicationState_t = struct applicationState {
     SDL_Renderer* renderer = nullptr;
     settings_t settings;
     camera_t camera;
+    input_t currentInput;
     size_t logicalWidth = 1280;
     size_t logicalHeight = 720;
     std::atomic< size_t > totalFramesRendered = 0;
@@ -417,8 +449,8 @@ auto init( applicationState_t& _applicationState ) -> bool {
                              .c_str(),
                          std::string( _applicationState.settings.identifier )
                              .c_str() ) ) {
-                    log::error( std::string( "Setting render scale: '%s'" ) +
-                                SDL_GetError() );
+                    log::error( std::format( "Setting render scale: '{}'",
+                                             SDL_GetError() ) );
 
                     goto EXIT;
                 }
@@ -442,9 +474,8 @@ auto init( applicationState_t& _applicationState ) -> bool {
                          ( SDL_WINDOW_INPUT_FOCUS ),
                          &( _applicationState.window ),
                          &( _applicationState.renderer ) ) ) {
-                    log::error(
-                        std::string( "Window or Renderer creation: '%s'" ) +
-                        SDL_GetError() );
+                    log::error( std::format(
+                        "Window or Renderer creation: '{}'", SDL_GetError() ) );
 
                     goto EXIT;
                 }
@@ -452,10 +483,10 @@ auto init( applicationState_t& _applicationState ) -> bool {
 
             // Default scale mode
             if ( !SDL_SetDefaultTextureScaleMode( _applicationState.renderer,
-                                                  SDL_SCALEMODE_NEAREST ) ) {
+                                                  SDL_SCALEMODE_LINEAR ) ) {
                 log::error(
-                    std::string( "Setting render nearest scale mode: '%s'" ) +
-                    SDL_GetError() );
+                    std::format( "Setting render nearest scale mode: '{}'",
+                                 SDL_GetError() ) );
 
                 goto EXIT;
             }
@@ -473,8 +504,8 @@ auto init( applicationState_t& _applicationState ) -> bool {
 
                 if ( !SDL_SetRenderScale( _applicationState.renderer, l_scaleX,
                                           l_scaleY ) ) {
-                    log::error( std::string( "Setting render scale: '%s'" ) +
-                                SDL_GetError() );
+                    log::error( std::format( "Setting render scale: '{}'",
+                                             SDL_GetError() ) );
 
                     goto EXIT;
                 }
@@ -515,7 +546,7 @@ void quit( applicationState_t& _applicationState ) {
     {
         const std::string_view& l_errorMessage = SDL_GetError();
 
-        if ( !( l_errorMessage.empty() ) ) {
+        if ( !l_errorMessage.empty() ) {
             log::error(
                 std::format( "Application quit: '{}'", l_errorMessage ) );
         }
@@ -537,7 +568,7 @@ void quit( applicationState_t& _applicationState ) {
         {
             const std::string_view& l_errorMessage = SDL_GetError();
 
-            if ( !( l_errorMessage.empty() ) ) {
+            if ( !l_errorMessage.empty() ) {
                 log::error( std::format( "Application shutdown: '{}'",
                                          l_errorMessage ) );
             }
@@ -648,7 +679,8 @@ auto handleKeyboardState( applicationState_t& _applicationState ) -> bool {
                     }
                 }
             }
-            // TODO: Set current user input in application state
+
+            _applicationState.currentInput = l_input;
         }
 
         l_lastInputFrame = l_totalFramesRendered;
@@ -715,6 +747,36 @@ EXIT:
     return ( l_returnValue );
 }
 
+// TODO: Implement
+auto iterate( applicationState_t& _applicationState ) -> bool {
+    bool l_returnValue = false;
+
+    {
+        if ( !_applicationState.isPaused ) {
+            // TODO: Camera
+        }
+
+        // Render
+        {
+            SDL_RenderClear( _applicationState.renderer );
+
+            // TODO: Background
+            // TODO: Scene
+
+            SDL_RenderPresent( _applicationState.renderer );
+        }
+
+        if ( !_applicationState.isPaused ) {
+            // TODO: Logic
+            // TODO: Handle application current input
+        }
+
+        l_returnValue = true;
+    }
+
+    return ( l_returnValue );
+}
+
 } // namespace runtime
 
 } // namespace
@@ -728,6 +790,8 @@ auto main() -> int {
         }
 
         for ( ;; ) {
+            vsync::begin();
+
             SDL_PumpEvents();
 
             runtime::event_t l_event{};
@@ -743,14 +807,13 @@ auto main() -> int {
                 break;
             }
 
-            // TODO: Implement
-#if 0
-        l_returnValue = iterate( l_applicationState );
+            if ( !runtime::iterate( l_applicationState ) ) {
+                break;
+            }
 
-        if ( !l_returnValue ) {
-            break;
-        }
-#endif
+            vsync::end();
+
+            ( l_applicationState.totalFramesRendered )++;
         }
     }
 
