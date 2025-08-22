@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <bgfx/bgfx.h>
 
 #include <bitset>
 #include <iostream>
@@ -424,7 +425,6 @@ using applicationState_t = struct applicationState {
     size_t logicalWidth = 1280;
     size_t logicalHeight = 720;
     std::atomic< size_t > totalFramesRendered = 0;
-    bool isPaused = false;
     bool status = false;
 };
 
@@ -747,14 +747,11 @@ EXIT:
     return ( l_returnValue );
 }
 
-// TODO: Implement
 auto iterate( applicationState_t& _applicationState ) -> bool {
     bool l_returnValue = false;
 
     {
-        if ( !_applicationState.isPaused ) {
-            // TODO: Camera
-        }
+        // TODO: Camera
 
         // Render
         {
@@ -766,10 +763,8 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
             SDL_RenderPresent( _applicationState.renderer );
         }
 
-        if ( !_applicationState.isPaused ) {
-            // TODO: Logic
-            // TODO: Handle application current input
-        }
+        // TODO: Logic
+        // TODO: Handle application current input
 
         l_returnValue = true;
     }
@@ -787,6 +782,30 @@ auto main() -> int {
     {
         if ( !runtime::init( l_applicationState ) ) {
             goto EXIT;
+        }
+
+        // Renderer
+        {
+            bgfx::Init l_parameters{};
+
+            l_parameters.vendorId = BGFX_PCI_ID_NONE;
+            l_parameters.deviceId = 0;
+            l_parameters.type = bgfx::RendererType::Count;
+            // TODO: Decide
+            // l_parameters.resolution;
+
+            bgfx::PlatformData l_pd{};
+            l_pd.ndt = SDL_GetProperty(
+                SDL_GetWindowProperties( l_applicationState.window ),
+                SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr );
+            l_pd.nwh = SDL_GetProperty(
+                SDL_GetWindowProperties( l_applicationState.window ),
+                SDL_PROP_WINDOW_NATIVE_HANDLE, nullptr );
+            l_pd.context = nullptr;
+            l_pd.backBuffer = nullptr;
+            l_pd.backBufferDS = nullptr;
+
+            bgfx::init();
         }
 
         for ( ;; ) {
