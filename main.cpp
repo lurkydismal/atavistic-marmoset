@@ -368,6 +368,8 @@ void logger( const std::stop_token& _stopToken,
     auto l_timeLast = clock::now();
 
     while ( !_stopToken.stop_requested() ) {
+        std::this_thread::sleep_for( 1s );
+
         const auto l_timeNow = clock::now();
 
         {
@@ -387,8 +389,6 @@ void logger( const std::stop_token& _stopToken,
         }
 
         l_timeLast = l_timeNow;
-
-        std::this_thread::sleep_for( 1s );
     }
 
     log::info( "FPS logger stopped." );
@@ -564,14 +564,21 @@ auto init( applicationState_t& _applicationState ) -> bool {
 
                     // Build init parameters resolution
                     {
-                        l_initParameters.resolution.width =
-                            _applicationState.width;
+                        int l_windowWidth = 0;
+                        int l_windowHeight = 0;
+
+                        if ( !SDL_GetWindowSize( _applicationState.window,
+                                                 &l_windowWidth,
+                                                 &l_windowHeight ) ) {
+                            log::error( "Querying window size" );
+
+                            goto EXIT;
+                        }
+
+                        l_initParameters.resolution.width = l_windowWidth;
+                        l_initParameters.resolution.height = l_windowHeight;
 
                         log::variable( l_initParameters.resolution.width );
-
-                        l_initParameters.resolution.height =
-                            _applicationState.height;
-
                         log::variable( l_initParameters.resolution.height );
 
                         l_initParameters.resolution.reset = BGFX_RESET_NONE;
