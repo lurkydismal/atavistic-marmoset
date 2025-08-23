@@ -1,9 +1,10 @@
 #include <SDL3/SDL.h>
+#include <X11/Xlib.h>
 #include <bgfx/bgfx.h>
 
-#include <bitset>
 #include <iostream>
 #include <ranges>
+#include <sstream>
 #include <thread>
 
 namespace {
@@ -60,6 +61,22 @@ void debug( const std::string_view& _message ) {
 #endif
 }
 
+template < typename T >
+void _variable( const std::string_view& _message, const T& _variable ) {
+    std::ostringstream l_stream;
+
+    l_stream << _message << " = '" << _variable << "'";
+
+    const std::string l_message = l_stream.str();
+
+    debug( l_message );
+}
+
+#define variable( _variableToLog )                                    \
+    _variable( __FILE_NAME__                                          \
+               ":" MACRO_TO_STRING( __LINE__ ) " | " #_variableToLog, \
+               _variableToLog );
+
 void info( const std::string_view& _message ) {
     std::cout << g_logInfoPrefix << _message << "\n";
 }
@@ -100,19 +117,13 @@ float g_desiredFPS = 0;
 
 static struct timespec g_sleepTime, g_startTime, g_endTime;
 
-auto init( const vsync_t _vsyncType,
-           const float _desiredFPS,
-           SDL_Renderer* _renderer ) -> bool {
+auto init( const vsync_t _vsyncType, const float _desiredFPS ) -> bool {
+    log::variable( _desiredFPS );
+
     bool l_returnValue = false;
 
     if ( g_desiredFPS ) {
         log::error( "Alraedy initialized" );
-
-        goto EXIT;
-    }
-
-    if ( !_renderer ) {
-        log::error( "Invalid argument" );
 
         goto EXIT;
     }
@@ -124,21 +135,11 @@ auto init( const vsync_t _vsyncType,
         if ( _vsyncType == vsync_t::off ) {
             g_sleepTime.tv_sec = 0;
             g_sleepTime.tv_nsec = millisecondsToNanoseconds(
-                g_oneSecondInMilliseconds / ( float )_desiredFPS );
-
-            l_returnValue = SDL_SetRenderVSync(
-                _renderer, SDL_WINDOW_SURFACE_VSYNC_DISABLED );
-
-            if ( !l_returnValue ) {
-                log::error( std ::format( "Setting renderer vsync: '{}'",
-                                          SDL_GetError() ) );
-
-                goto EXIT;
-            }
+                g_oneSecondInMilliseconds /
+                static_cast< float >( _desiredFPS ) );
         }
 
-        log::info(
-            std ::format( "Setting renderer vsync to {} FPS", _desiredFPS ) );
+        log::info( std ::format( "Setting vsync to {} FPS", _desiredFPS ) );
 
         log::debug( std ::format( "Vsync sleep time set to {} nanoseconds",
                                   g_sleepTime.tv_nsec ) );
@@ -213,23 +214,28 @@ enum class direction_t : uint8_t {
 };
 
 inline auto operator|=( direction_t& _lhs, direction_t _rhs ) -> direction_t& {
-    _lhs = static_cast< direction_t >(
-        static_cast< std::underlying_type_t< direction_t > >( _lhs ) |
-        static_cast< std::underlying_type_t< direction_t > >( _rhs ) );
+    using directionType_t = std::underlying_type_t< direction_t >;
+
+    _lhs = static_cast< direction_t >( static_cast< directionType_t >( _lhs ) |
+                                       static_cast< directionType_t >( _rhs ) );
 
     return ( _lhs );
 }
 
 inline auto operator|( direction_t _lhs, direction_t _rhs ) -> direction_t {
-    return ( static_cast< direction_t >(
-        static_cast< std::underlying_type_t< direction_t > >( _lhs ) |
-        static_cast< std::underlying_type_t< direction_t > >( _rhs ) ) );
+    using directionType_t = std::underlying_type_t< direction_t >;
+
+    return (
+        static_cast< direction_t >( static_cast< directionType_t >( _lhs ) |
+                                    static_cast< directionType_t >( _rhs ) ) );
 }
 
 inline auto operator&( direction_t _lhs, direction_t _rhs ) -> direction_t {
-    return ( static_cast< direction_t >(
-        static_cast< std::underlying_type_t< direction_t > >( _lhs ) &
-        static_cast< std::underlying_type_t< direction_t > >( _rhs ) ) );
+    using directionType_t = std::underlying_type_t< direction_t >;
+
+    return (
+        static_cast< direction_t >( static_cast< directionType_t >( _lhs ) &
+                                    static_cast< directionType_t >( _rhs ) ) );
 }
 
 enum class button_t : uint8_t {
@@ -237,23 +243,26 @@ enum class button_t : uint8_t {
 };
 
 inline auto operator|=( button_t& _lhs, button_t _rhs ) -> button_t& {
-    _lhs = static_cast< button_t >(
-        static_cast< std::underlying_type_t< button_t > >( _lhs ) |
-        static_cast< std::underlying_type_t< button_t > >( _rhs ) );
+    using buttonType_t = std::underlying_type_t< button_t >;
+
+    _lhs = static_cast< button_t >( static_cast< buttonType_t >( _lhs ) |
+                                    static_cast< buttonType_t >( _rhs ) );
 
     return ( _lhs );
 }
 
 inline auto operator|( button_t _lhs, button_t _rhs ) -> button_t {
-    return ( static_cast< button_t >(
-        static_cast< std::underlying_type_t< button_t > >( _lhs ) |
-        static_cast< std::underlying_type_t< button_t > >( _rhs ) ) );
+    using buttonType_t = std::underlying_type_t< button_t >;
+
+    return ( static_cast< button_t >( static_cast< buttonType_t >( _lhs ) |
+                                      static_cast< buttonType_t >( _rhs ) ) );
 }
 
 inline auto operator&( button_t _lhs, button_t _rhs ) -> button_t {
-    return ( static_cast< button_t >(
-        static_cast< std::underlying_type_t< button_t > >( _lhs ) &
-        static_cast< std::underlying_type_t< button_t > >( _rhs ) ) );
+    using buttonType_t = std::underlying_type_t< button_t >;
+
+    return ( static_cast< button_t >( static_cast< buttonType_t >( _lhs ) &
+                                      static_cast< buttonType_t >( _rhs ) ) );
 }
 
 using input_t = struct input {
@@ -359,8 +368,6 @@ void logger( const std::stop_token& _stopToken,
     auto l_timeLast = clock::now();
 
     while ( !_stopToken.stop_requested() ) {
-        std::this_thread::sleep_for( 1s );
-
         const auto l_timeNow = clock::now();
 
         {
@@ -380,6 +387,8 @@ void logger( const std::stop_token& _stopToken,
         }
 
         l_timeLast = l_timeNow;
+
+        std::this_thread::sleep_for( 1s );
     }
 
     log::info( "FPS logger stopped." );
@@ -418,12 +427,13 @@ using applicationState_t = struct applicationState {
     auto unload() -> bool { return ( true ); }
 
     SDL_Window* window = nullptr;
-    SDL_Renderer* renderer = nullptr;
     settings_t settings;
     camera_t camera;
     input_t currentInput;
     size_t logicalWidth = 1280;
     size_t logicalHeight = 720;
+    float width = logicalWidth;
+    float height = logicalHeight;
     std::atomic< size_t > totalFramesRendered = 0;
     bool status = false;
 };
@@ -464,53 +474,134 @@ auto init( applicationState_t& _applicationState ) -> bool {
             // Init SDL sub-systems
             SDL_Init( SDL_INIT_VIDEO );
 
-            // Window and Renderer
+            // Window
             {
-                if ( !SDL_CreateWindowAndRenderer(
-                         std::string( _applicationState.settings.window.name )
-                             .c_str(),
-                         _applicationState.settings.window.width,
-                         _applicationState.settings.window.height,
-                         ( SDL_WINDOW_INPUT_FOCUS ),
-                         &( _applicationState.window ),
-                         &( _applicationState.renderer ) ) ) {
+                _applicationState.window = SDL_CreateWindow(
+                    std::string( _applicationState.settings.window.name )
+                        .c_str(),
+                    _applicationState.settings.window.width,
+                    _applicationState.settings.window.height,
+                    ( SDL_WINDOW_INPUT_FOCUS ) );
+
+                log::variable( _applicationState.window );
+
+                if ( !_applicationState.window ) {
                     log::error( std::format(
                         "Window or Renderer creation: '{}'", SDL_GetError() ) );
 
                     goto EXIT;
                 }
+
+                _applicationState.width =
+                    _applicationState.settings.window.width;
+                _applicationState.height =
+                    _applicationState.settings.window.width;
+
+                log::variable( _applicationState.width );
+                log::variable( _applicationState.height );
             }
 
-            // Default scale mode
-            if ( !SDL_SetDefaultTextureScaleMode( _applicationState.renderer,
-                                                  SDL_SCALEMODE_LINEAR ) ) {
-                log::error(
-                    std::format( "Setting render nearest scale mode: '{}'",
-                                 SDL_GetError() ) );
-
-                goto EXIT;
-            }
-
-            // TODO: Set SDL3 logical resolution
-            // TODO: Probably reduntant
-            // Scaling
+            // Renderer
             {
-                const float l_scaleX =
-                    ( ( float )( _applicationState.settings.window.width ) /
-                      ( float )( _applicationState.logicalWidth ) );
-                const float l_scaleY =
-                    ( ( float )( _applicationState.settings.window.height ) /
-                      ( float )( _applicationState.logicalHeight ) );
+                bgfx::Init l_initParameters{};
 
-                if ( !SDL_SetRenderScale( _applicationState.renderer, l_scaleX,
-                                          l_scaleY ) ) {
-                    log::error( std::format( "Setting render scale: '{}'",
-                                             SDL_GetError() ) );
+                // Build init parameters
+                {
+                    l_initParameters.deviceId = 0;
+                    l_initParameters.type = bgfx::RendererType::Count;
+                    l_initParameters.vendorId = BGFX_PCI_ID_NONE;
+
+                    bgfx::PlatformData l_pd{};
+
+                    // Build platform data
+                    {
+                        // Get window handle and display
+                        {
+                            SDL_PropertiesID l_properties =
+                                SDL_GetWindowProperties(
+                                    _applicationState.window );
+
+                            auto l_display =
+                                static_cast< Display* >( SDL_GetPointerProperty(
+                                    l_properties,
+                                    SDL_PROP_WINDOW_X11_DISPLAY_POINTER,
+                                    nullptr ) );
+
+                            log::variable( l_display );
+
+                            if ( !l_display ) {
+                                log::error( "Obtaining X11 display" );
+
+                                goto EXIT;
+                            }
+
+                            Window l_windowNumber = SDL_GetNumberProperty(
+                                l_properties, SDL_PROP_WINDOW_X11_WINDOW_NUMBER,
+                                0 );
+
+                            log::variable( l_windowNumber );
+
+                            if ( !l_windowNumber ) {
+                                log::error( "Obtaining X11 window" );
+
+                                goto EXIT;
+                            }
+
+                            l_pd.nwh =
+                                reinterpret_cast< void* >( l_windowNumber );
+                            l_pd.ndt = l_display;
+                        }
+
+                        l_pd.backBuffer = nullptr;
+                        l_pd.backBufferDS = nullptr;
+                        l_pd.context = nullptr;
+
+                        // X11
+                        l_pd.type = bgfx::NativeWindowHandleType::Default;
+                    }
+
+                    l_initParameters.platformData = l_pd;
+
+                    // Build init parameters resolution
+                    {
+                        l_initParameters.resolution.width =
+                            _applicationState.width;
+
+                        log::variable( l_initParameters.resolution.width );
+
+                        l_initParameters.resolution.height =
+                            _applicationState.height;
+
+                        log::variable( l_initParameters.resolution.height );
+
+                        l_initParameters.resolution.reset = BGFX_RESET_NONE;
+                    }
+
+#if defined( DEBUG )
+
+                    l_initParameters.debug = true;
+
+#endif
+                }
+
+                if ( !bgfx::init( l_initParameters ) ) {
+                    log::error( "Initializing renderer" );
 
                     goto EXIT;
                 }
+
+                log::info( std::format(
+                    "Current renderer: {}",
+                    bgfx::getRendererName( bgfx::getRendererType() ) ) );
+
+#if defined( DEBUG )
+
+                bgfx::setDebug( BGFX_DEBUG_TEXT | BGFX_DEBUG_STATS );
+
+#endif
             }
 
+            // TODO: Default scale mode
             // TODO: Set new SDL3 things
 
             // Load resources
@@ -523,8 +614,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
 
         // Vsync
         if ( !vsync::init( _applicationState.settings.window.vsync,
-                           _applicationState.settings.window.desiredFPS,
-                           _applicationState.renderer ) ) {
+                           _applicationState.settings.window.desiredFPS ) ) {
             log::error( "Initializing Vsync" );
 
             goto EXIT;
@@ -558,6 +648,9 @@ void quit( applicationState_t& _applicationState ) {
     // Vsync
     vsync::quit();
 
+    // BGFX
+    bgfx::shutdown();
+
     // Application state
     {
         if ( !_applicationState.unload() ) {
@@ -572,10 +665,6 @@ void quit( applicationState_t& _applicationState ) {
                 log::error( std::format( "Application shutdown: '{}'",
                                          l_errorMessage ) );
             }
-        }
-
-        if ( _applicationState.renderer ) {
-            SDL_DestroyRenderer( _applicationState.renderer );
         }
 
         if ( _applicationState.window ) {
@@ -596,29 +685,10 @@ auto onWindowResize( applicationState_t& _applicationState,
     bool l_returnValue = false;
 
     {
-        static size_t l_lastResizeFrame = 0;
-        const size_t l_totalFramesRendered =
-            _applicationState.totalFramesRendered;
+        _applicationState.width = _width;
+        _applicationState.height = _height;
 
-        if ( l_lastResizeFrame < l_totalFramesRendered ) {
-            const float l_logicalWidth = _applicationState.logicalWidth;
-            const float l_logicalHeigth = _applicationState.logicalHeight;
-
-            const float l_scaleX = ( _width / l_logicalWidth );
-            const float l_scaleY = ( _height / l_logicalHeigth );
-
-            if ( !SDL_SetRenderScale( _applicationState.renderer, l_scaleX,
-                                      l_scaleY ) ) {
-                l_returnValue = false;
-
-                log::error( std::format( "Setting render scale: '{}'",
-                                         SDL_GetError() ) );
-
-                goto EXIT;
-            }
-        }
-
-        l_lastResizeFrame = l_totalFramesRendered;
+        bgfx::reset( _width, _height );
 
         l_returnValue = true;
     }
@@ -639,42 +709,24 @@ auto handleKeyboardState( applicationState_t& _applicationState ) -> bool {
             input_t l_input;
 
             {
-                std::bitset< SDL_SCANCODE_COUNT > l_keysState{};
+                int l_keysAmount = 0;
+                const bool* l_keysState = SDL_GetKeyboardState( &l_keysAmount );
 
-                constexpr const size_t l_SDLScancodeFirst =
-                    ( SDL_SCANCODE_UNKNOWN + 1 );
+                __builtin_assume( l_keysAmount == SDL_SCANCODE_COUNT );
 
-                // Build keys state
-                {
-                    std::bitset< SDL_SCANCODE_COUNT >& l_temp = l_keysState;
+                for ( auto [ _index, _isPressed ] :
+                      std::span( l_keysState, l_keysAmount ) |
+                          std::views::enumerate ) {
+                    if ( _isPressed ) {
+                        auto l_scancode = static_cast< SDL_Scancode >( _index );
 
-                    int l_keysAmount = 0;
-                    const bool* l_keysState =
-                        SDL_GetKeyboardState( &l_keysAmount );
+                        const control_t& l_control =
+                            _applicationState.settings.controls.get(
+                                l_scancode );
 
-                    __builtin_assume( l_keysAmount == SDL_SCANCODE_COUNT );
-
-                    for ( size_t _index : std::views::iota(
-                              l_SDLScancodeFirst, ( size_t )l_keysAmount ) ) {
-                        l_temp.set( l_keysState[ _index ] );
-                    }
-                }
-
-                if ( l_keysState.any() ) {
-                    for ( size_t _index : std::views::iota(
-                              l_SDLScancodeFirst, l_keysState.size() ) ) {
-                        // If pressed
-                        if ( l_keysState.test( _index ) ) {
-                            auto l_scancode = ( SDL_Scancode )_index;
-
-                            const control_t& l_control =
-                                _applicationState.settings.controls.get(
-                                    l_scancode );
-
-                            if ( l_control.scancode != SDL_SCANCODE_UNKNOWN ) {
-                                l_input.direction |= l_control.input.direction;
-                                l_input.button |= l_control.input.button;
-                            }
+                        if ( l_control.scancode != SDL_SCANCODE_UNKNOWN ) {
+                            l_input.direction |= l_control.input.direction;
+                            l_input.button |= l_control.input.button;
                         }
                     }
                 }
@@ -700,6 +752,7 @@ auto event( applicationState_t& _applicationState, const event_t& _event )
     {
         const bool l_isEventEmpty = ( _event.type == 0 );
 
+        // Empty means last event on current frame
         if ( l_isEventEmpty ) {
             l_returnValue = handleKeyboardState( _applicationState );
 
@@ -755,12 +808,22 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
 
         // Render
         {
-            SDL_RenderClear( _applicationState.renderer );
+            // Begin frame
+            {
+                bgfx::setViewClear( 0,
+                                    ( BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH ) );
+
+                bgfx::setViewRect( 0, 0, 0, _applicationState.width,
+                                   _applicationState.height );
+
+                bgfx::touch( 0 );
+            }
 
             // TODO: Background
             // TODO: Scene
 
-            SDL_RenderPresent( _applicationState.renderer );
+            // End frame
+            bgfx::frame();
         }
 
         // TODO: Logic
@@ -776,36 +839,35 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
 
 } // namespace
 
+void printSupportedRenderers() {
+    using rendererType_t = std::underlying_type_t< bgfx::RendererType::Enum >;
+
+    std::array< bgfx::RendererType::Enum, bgfx::RendererType::Enum::Count >
+        l_supportedRenderers{};
+
+    const rendererType_t l_supportedRenderersAmount =
+        bgfx::getSupportedRenderers( bgfx::getSupportedRenderers(),
+                                     l_supportedRenderers.data() );
+
+    log::debug( "Supported renderers:" );
+
+    for ( rendererType_t _index :
+          std::views::iota( static_cast< rendererType_t >( 0 ),
+                            l_supportedRenderersAmount ) ) {
+        log::debug( std::format(
+            " - {}",
+            bgfx::getRendererName( l_supportedRenderers.at( _index ) ) ) );
+    }
+}
+
 auto main() -> int {
     runtime::applicationState_t l_applicationState;
+
+    printSupportedRenderers();
 
     {
         if ( !runtime::init( l_applicationState ) ) {
             goto EXIT;
-        }
-
-        // Renderer
-        {
-            bgfx::Init l_parameters{};
-
-            l_parameters.vendorId = BGFX_PCI_ID_NONE;
-            l_parameters.deviceId = 0;
-            l_parameters.type = bgfx::RendererType::Count;
-            // TODO: Decide
-            // l_parameters.resolution;
-
-            bgfx::PlatformData l_pd{};
-            l_pd.ndt = SDL_GetProperty(
-                SDL_GetWindowProperties( l_applicationState.window ),
-                SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr );
-            l_pd.nwh = SDL_GetProperty(
-                SDL_GetWindowProperties( l_applicationState.window ),
-                SDL_PROP_WINDOW_NATIVE_HANDLE, nullptr );
-            l_pd.context = nullptr;
-            l_pd.backBuffer = nullptr;
-            l_pd.backBufferDS = nullptr;
-
-            bgfx::init();
         }
 
         for ( ;; ) {
