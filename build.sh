@@ -43,11 +43,13 @@ bear -- ccache clang++ \
     -Wno-gcc-compat -Wno-incompatible-pointer-types-discards-qualifiers \
     main.cpp \
     -D DEBUG \
-    -O0 -ggdb3 \
+    -D BX_CONFIG_DEBUG=1 \
+    -Og -ggdb3 \
     -fno-rtti -fno-exceptions -fno-threadsafe-statics \
     -fno-unwind-tables \
     -lSDL3 \
     -lbgfx \
+    -lassimp \
     -lmimalloc \
     -lelf -lunwind
-# -lbgfx -lbimg -lbx -lassimp -ldl -lpthread
+# -lbimg -lbx -ldl -lpthread
