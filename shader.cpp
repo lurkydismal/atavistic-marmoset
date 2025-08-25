@@ -1,41 +1,54 @@
 #include "shader.hpp"
 
+#include <cstdint>
 #include <fstream>
+#include <span>
 
 #include "log.hpp"
 
 namespace shader {
 
-// TODO: Improve
 auto load( const std::string _name ) -> bgfx::ShaderHandle {
     bgfx::ShaderHandle l_returnValue = BGFX_INVALID_HANDLE;
 
     {
-        std::ifstream l_file( _name, ( std::ios::binary | std::ios::ate ) );
+        std::ifstream l_inputFileStream( _name,
+                                         ( std::ios::binary | std::ios::ate ) );
 
-        if ( !l_file.is_open() ) {
+        bool l_result = l_inputFileStream.good();
+
+        if ( !l_result ) {
             log::error( "TODO" );
 
             goto EXIT;
         }
 
-        const std::streamsize l_size = l_file.tellg();
+        const std::streamsize l_fileSize = l_inputFileStream.tellg();
 
-        l_file.seekg( 0, std::ios::beg );
+        l_inputFileStream.seekg( 0, std::ios::beg );
 
-        const bgfx::Memory* l_mem = bgfx::alloc( uint32_t( l_size + 1 ) );
+        const bgfx::Memory* l_shaderInMemory = bgfx::alloc( l_fileSize + 1 );
 
-        if ( !l_file.read( reinterpret_cast< char* >( l_mem->data ),
-                           l_size ) ) {
-            log::error( "TODO" );
+        // Build memory
+        {
+            const auto l_shaderInMemoryView =
+                std::span( reinterpret_cast< char* >( l_shaderInMemory->data ),
+                           l_shaderInMemory->size );
 
-            goto EXIT;
+            l_result = !!( l_inputFileStream.read( l_shaderInMemoryView.data(),
+                                                   l_fileSize ) );
+
+            if ( !l_result ) {
+                log::error( "TODO" );
+
+                goto EXIT;
+            }
+
+            // NUL is required
+            l_shaderInMemoryView.back() = '\0';
         }
 
-        // NUL is required
-        l_mem->data[ l_mem->size - 1 ] = '\0';
-
-        l_returnValue = bgfx::createShader( l_mem );
+        l_returnValue = bgfx::createShader( l_shaderInMemory );
     }
 
 EXIT:

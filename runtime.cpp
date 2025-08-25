@@ -639,7 +639,6 @@ auto init( applicationState_t& _applicationState ) -> bool {
                                    _applicationState.height );
             }
 
-            // TODO: Default scale mode
             // TODO: Set new SDL3 things
 
             // Load resources
