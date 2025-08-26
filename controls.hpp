@@ -24,17 +24,7 @@ enum class direction_t : uint8_t {
     right = 0b1000,
 };
 
-inline constexpr auto operator|=( direction_t& _lhs, direction_t _rhs )
-    -> direction_t& {
-    using directionType_t = std::underlying_type_t< direction_t >;
-
-    _lhs = static_cast< direction_t >( static_cast< directionType_t >( _lhs ) |
-                                       static_cast< directionType_t >( _rhs ) );
-
-    return ( _lhs );
-}
-
-inline constexpr auto operator|( direction_t _lhs, direction_t _rhs )
+[[nodiscard]] constexpr auto operator|( direction_t _lhs, direction_t _rhs )
     -> direction_t {
     using directionType_t = std::underlying_type_t< direction_t >;
 
@@ -43,7 +33,7 @@ inline constexpr auto operator|( direction_t _lhs, direction_t _rhs )
                                     static_cast< directionType_t >( _rhs ) ) );
 }
 
-inline constexpr auto operator&( direction_t _lhs, direction_t _rhs )
+[[nodiscard]] constexpr auto operator&( direction_t _lhs, direction_t _rhs )
     -> direction_t {
     using directionType_t = std::underlying_type_t< direction_t >;
 
@@ -52,31 +42,32 @@ inline constexpr auto operator&( direction_t _lhs, direction_t _rhs )
                                     static_cast< directionType_t >( _rhs ) ) );
 }
 
+constexpr void operator|=( direction_t& _lhs, direction_t _rhs ) {
+    _lhs = ( _lhs | _rhs );
+}
+
 enum class button_t : uint8_t {
     none = 0,
 };
 
-inline constexpr auto operator|=( button_t& _lhs, button_t _rhs ) -> button_t& {
-    using buttonType_t = std::underlying_type_t< button_t >;
-
-    _lhs = static_cast< button_t >( static_cast< buttonType_t >( _lhs ) |
-                                    static_cast< buttonType_t >( _rhs ) );
-
-    return ( _lhs );
-}
-
-inline constexpr auto operator|( button_t _lhs, button_t _rhs ) -> button_t {
+[[nodiscard]] constexpr auto operator|( button_t _lhs, button_t _rhs )
+    -> button_t {
     using buttonType_t = std::underlying_type_t< button_t >;
 
     return ( static_cast< button_t >( static_cast< buttonType_t >( _lhs ) |
                                       static_cast< buttonType_t >( _rhs ) ) );
 }
 
-inline constexpr auto operator&( button_t _lhs, button_t _rhs ) -> button_t {
+[[nodiscard]] constexpr auto operator&( button_t _lhs, button_t _rhs )
+    -> button_t {
     using buttonType_t = std::underlying_type_t< button_t >;
 
     return ( static_cast< button_t >( static_cast< buttonType_t >( _lhs ) &
                                       static_cast< buttonType_t >( _rhs ) ) );
+}
+
+constexpr void operator|=( button_t& _lhs, button_t _rhs ) {
+    _lhs = ( _lhs | _rhs );
 }
 
 using input_t = struct input {
@@ -100,7 +91,8 @@ using control_t = struct control {
     auto operator=( const control& ) -> control& = default;
     auto operator=( control&& ) -> control& = default;
 
-    inline constexpr auto check( const SDL_Scancode _scancode ) -> bool {
+    [[nodiscard]] inline constexpr auto check( const SDL_Scancode _scancode )
+        -> bool {
         return ( scancode == _scancode );
     }
 
@@ -117,7 +109,7 @@ using controls_t = struct controls {
     auto operator=( const controls& ) -> controls& = default;
     auto operator=( controls&& ) -> controls& = default;
 
-    inline constexpr auto get( const SDL_Scancode _scancode )
+    [[nodiscard]] inline constexpr auto get( const SDL_Scancode _scancode )
         -> const control_t {
         if ( up.check( _scancode ) ) {
             return ( up );

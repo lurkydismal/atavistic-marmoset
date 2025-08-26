@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL.h>
+#include <bgfx/bgfx.h>
 
 #include <atomic>
 #include <string>
@@ -38,6 +39,8 @@ using applicationState_t = struct applicationState {
     std::string vertexShaderPath;
     std::string fragmentShaderPath;
     std::string modelPath;
+
+    bgfx::ProgramHandle shaderProgram = BGFX_INVALID_HANDLE;
 
     bool status = false;
 };

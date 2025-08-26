@@ -33,8 +33,13 @@ compile_shader "$fragment_filepath" "$fragment_compiled_filepath" 'fragment'
 
 source_files=(
     'FPS.cpp'
+    'bgfx_helper.cpp'
     'main.cpp'
     'runtime.cpp'
+    'runtime_event.cpp'
+    'runtime_init.cpp'
+    'runtime_iterate.cpp'
+    'runtime_quit.cpp'
     'shader.cpp'
     'vsync.cpp'
 )

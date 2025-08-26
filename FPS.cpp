@@ -33,7 +33,7 @@ void logger( const std::stop_token& _stopToken,
                 l_FPS = ( l_framesCount / l_frameDurationInSeconds.count() );
             }
 
-            log::info( std::format( "FPS: {:.2f}", l_FPS ) );
+            log::info( "FPS: {:.2f}", l_FPS );
         }
 
         l_timeLast = l_timeNow;

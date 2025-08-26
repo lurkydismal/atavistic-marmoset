@@ -22,9 +22,8 @@ static void printSupportedRenderers() {
     for ( rendererType_t _index :
           std::views::iota( static_cast< rendererType_t >( 0 ),
                             l_supportedRenderersAmount ) ) {
-        log::debug( std::format(
-            " - {}",
-            bgfx::getRendererName( l_supportedRenderers.at( _index ) ) ) );
+        log::debug( " - {}", bgfx::getRendererName(
+                                 l_supportedRenderers.at( _index ) ) );
     }
 }
 

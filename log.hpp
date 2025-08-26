@@ -1,8 +1,10 @@
 #pragma once
 
 #include <iostream>
-#include <sstream>
+#include <print>
+#include <source_location>
 #include <string_view>
+#include <utility>
 
 #include "common.hpp"
 
@@ -23,49 +25,57 @@ inline constexpr const std::string_view g_logErrorPrefix = "ERROR: ";
 
 namespace log {
 
-inline void debug( const std::string_view _message ) {
+template < typename... Arguments >
+inline void debug( std::format_string< Arguments... > _format,
+                   Arguments&&... _arguments ) {
 #if defined( DEBUG )
 
-    std::cout << g_logDebugPrefix << _message << "\n";
+    std::print( g_logDebugPrefix );
+    std::println( _format, std::forward< Arguments >( _arguments )... );
+
+#else
+
+    ( void )_message;
 
 #endif
 }
 
 template < typename T >
-inline void _variable( const std::string_view _message, const T& _variable ) {
-    std::ostringstream l_stream;
-
-    l_stream << _message << " = '" << _variable << "'";
-
-    const std::string l_message = l_stream.str();
-
-    debug( l_message );
+inline void _variable( const std::string_view _variableName,
+                       const T& _variable,
+                       const std::source_location l_sourceLocation =
+                           std::source_location::current() ) {
+    debug( "{}:{} | {} = '{}'", l_sourceLocation.file_name(),
+           l_sourceLocation.line(), _variableName, _variable );
 }
 
-#define variable( _variableToLog )                                    \
-    _variable( __FILE_NAME__                                          \
-               ":" MACRO_TO_STRING( __LINE__ ) " | " #_variableToLog, \
-               _variableToLog );
+#define variable( _variableToLog ) _variable( #_variableToLog, _variableToLog )
 
-inline void info( const std::string_view _message ) {
-    std::cout << g_logInfoPrefix << _message << "\n";
+template < typename... Arguments >
+inline void info( std::format_string< Arguments... > _format,
+                  Arguments&&... _arguments ) {
+    std::print( g_logInfoPrefix );
+    std::println( _format, std::forward< Arguments >( _arguments )... );
 }
 
-inline void warning( const std::string_view _message ) {
-    std::cerr << g_logWarningPrefix << _message << "\n";
+template < typename... Arguments >
+inline void warning( std::format_string< Arguments... > _format,
+                     Arguments&&... _arguments ) {
+    std::print( std::cerr, g_logWarningPrefix );
+    std::println( _format, std::forward< Arguments >( _arguments )... );
 }
 
 // Function file:line | message
-inline void _error( const std::string_view _message,
-                    const char* _functionName,
-                    const char* _fileName,
-                    const char* _lineNumber ) {
-    std::cerr << g_logErrorPrefix << "\"" << _functionName << "\"" << " "
-              << _fileName << ":" << _lineNumber << " | " << _message << "\n";
+template < typename... Arguments >
+inline void error( std::format_string< Arguments... > _format,
+                   Arguments&&... _arguments,
+                   const std::source_location l_sourceLocation =
+                       std::source_location::current() ) {
+    std::print( std::cerr, "{}\"{}\" {} : {} | ", g_logErrorPrefix,
+                l_sourceLocation.function_name(), l_sourceLocation.file_name(),
+                l_sourceLocation.line() );
+    std::println( std::cerr, _format,
+                  std::forward< Arguments >( _arguments )... );
 }
-
-#define error( _message )                                     \
-    _error( ( _message ), __PRETTY_FUNCTION__, __FILE_NAME__, \
-            MACRO_TO_STRING( __LINE__ ) )
 
 } // namespace log

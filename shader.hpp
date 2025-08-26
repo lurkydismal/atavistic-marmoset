@@ -6,6 +6,6 @@
 
 namespace shader {
 
-auto load( const std::string _name ) -> bgfx::ShaderHandle;
+[[nodiscard]] auto load( const std::string _name ) -> bgfx::ShaderHandle;
 
 } // namespace shader
