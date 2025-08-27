@@ -13,13 +13,13 @@ namespace {
 // Prefixes
 #if defined( DEBUG )
 
-inline constexpr const std::string_view g_logDebugPrefix = "DEBUG: ";
+constexpr std::string_view g_logDebugPrefix = "DEBUG: ";
 
 #endif
 
-inline constexpr const std::string_view g_logInfoPrefix = "INFO: ";
-inline constexpr const std::string_view g_logWarningPrefix = "WARNING: ";
-inline constexpr const std::string_view g_logErrorPrefix = "ERROR: ";
+constexpr std::string_view g_logInfoPrefix = "INFO: ";
+constexpr std::string_view g_logWarningPrefix = "WARNING: ";
+constexpr std::string_view g_logErrorPrefix = "ERROR: ";
 
 } // namespace
 
@@ -41,12 +41,24 @@ inline void debug( std::format_string< Arguments... > _format,
 }
 
 template < typename T >
-inline void _variable( const std::string_view _variableName,
+    requires( !std::is_pointer_v< T > )
+inline void _variable( std::string_view _variableName,
                        const T& _variable,
-                       const std::source_location l_sourceLocation =
+                       const std::source_location _sourceLocation =
                            std::source_location::current() ) {
-    debug( "{}:{} | {} = '{}'", l_sourceLocation.file_name(),
-           l_sourceLocation.line(), _variableName, _variable );
+    debug( "{}:{} | {} = '{}'", _sourceLocation.file_name(),
+           _sourceLocation.line(), _variableName, _variable );
+}
+
+template < typename T >
+    requires( std::is_pointer_v< T > )
+inline void _variable( std::string_view _variableName,
+                       const T _variable,
+                       const std::source_location _sourceLocation =
+                           std::source_location::current() ) {
+    debug( "{}:{} | {} = '0x{:016x}'", _sourceLocation.file_name(),
+           _sourceLocation.line(), _variableName,
+           reinterpret_cast< uintptr_t >( _variable ) );
 }
 
 #define variable( _variableToLog ) _variable( #_variableToLog, _variableToLog )
@@ -65,17 +77,23 @@ inline void warning( std::format_string< Arguments... > _format,
     std::println( _format, std::forward< Arguments >( _arguments )... );
 }
 
+template < typename... Arguments >
+inline void _error( std::format_string< Arguments... > _format,
+                    const std::source_location _sourceLocation,
+                    Arguments&&... _arguments ) {
+    std::print( std::cerr, "{}\"{}\" {} : {} | ", g_logErrorPrefix,
+                _sourceLocation.function_name(), _sourceLocation.file_name(),
+                _sourceLocation.line() );
+    std::println( std::cerr, _format,
+                  std::forward< Arguments >( _arguments )... );
+}
+
 // Function file:line | message
 template < typename... Arguments >
 inline void error( std::format_string< Arguments... > _format,
-                   Arguments&&... _arguments,
-                   const std::source_location l_sourceLocation =
-                       std::source_location::current() ) {
-    std::print( std::cerr, "{}\"{}\" {} : {} | ", g_logErrorPrefix,
-                l_sourceLocation.function_name(), l_sourceLocation.file_name(),
-                l_sourceLocation.line() );
-    std::println( std::cerr, _format,
-                  std::forward< Arguments >( _arguments )... );
+                   Arguments&&... _arguments ) {
+    _error( _format, std::source_location::current(),
+            std::forward< Arguments >( _arguments )... );
 }
 
 } // namespace log

@@ -2,6 +2,7 @@
 
 #include <bgfx/bgfx.h>
 
+#include <format>
 #include <ostream>
 #include <sstream>
 
@@ -11,26 +12,13 @@
 
 template <>
 struct std::formatter< bgfx::ProgramHandle, char > {
-    constexpr auto parse( auto& _context ) { return ( _context.begin() ); }
+    constexpr auto parse( std::format_parse_context& _context ) {
+        return ( _context.begin() );
+    }
 
-    auto format( const bgfx::ProgramHandle& _value, auto& _context ) {
-        std::string l_returnValue;
-
-        // Build return value
-        {
-            std::ostringstream l_returnValueStream;
-
-            l_returnValueStream << "{ ";
-
-            bool l_isNotFirstFormatterIteration = false;
-
-            l_returnValueStream
-                << std::format( "{} {}: {} : {}", "uint16_t", "idx", _value.idx,
-                                sizeof( _value.idx ) );
-
-            l_returnValueStream << "}";
-        }
-
-        return ( std::format_to( _context.out(), "{}", l_returnValue ) );
+    auto format( const bgfx::ProgramHandle& _value,
+                 std::format_context& _context ) const {
+        return ( std::format_to( _context.out(), "{{ uint16_t {}: {} : {} }}",
+                                 "idx", _value.idx, sizeof( _value.idx ) ) );
     }
 };

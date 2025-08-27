@@ -1,6 +1,7 @@
 #include <X11/Xlib.h>
 
 #include "FPS.hpp"
+#include "common.hpp"
 #include "log.hpp"
 #include "runtime.hpp"
 

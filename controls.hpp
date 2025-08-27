@@ -9,8 +9,7 @@
 namespace {
 
 // Control
-static inline constexpr const std::string_view g_controlAsStringUnknown =
-    "UNKNOWN";
+constexpr std::string_view g_controlAsStringUnknown = "UNKNOWN";
 
 } // namespace
 

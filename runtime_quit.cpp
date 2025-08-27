@@ -7,7 +7,7 @@ namespace runtime {
 void quit( applicationState_t& _applicationState ) {
     // Report if SDL error occured before quitting
     {
-        const std::string_view l_errorMessage = SDL_GetError();
+        std::string_view l_errorMessage = SDL_GetError();
 
         if ( !l_errorMessage.empty() ) {
             log::error( "Application quit: '{}'", l_errorMessage );
@@ -31,7 +31,7 @@ void quit( applicationState_t& _applicationState ) {
 
         // Report if SDL error occured during quitting
         {
-            const std::string_view l_errorMessage = SDL_GetError();
+            std::string_view l_errorMessage = SDL_GetError();
 
             if ( !l_errorMessage.empty() ) {
                 log::error( "Application shutdown: '{}'", l_errorMessage );

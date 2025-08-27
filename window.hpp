@@ -15,7 +15,7 @@ using window_t = struct window {
     auto operator=( const window& ) -> window& = default;
     auto operator=( window&& ) -> window& = default;
 
-    static inline constexpr const std::string_view name = "atavistic-marmoset";
+    static inline constexpr std::string_view name = "atavistic-marmoset";
     size_t width = 640;
     size_t height = 480;
     size_t desiredFPS = 60;

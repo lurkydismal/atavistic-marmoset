@@ -64,7 +64,7 @@ CheckOptions:
   - key: readability-identifier-naming.ParameterConstantCase
     value: camelBack
   - key: readability-identifier-naming.ParameterConstantPrefix
-    value: _
+    value: '_'
 
   - key: readability-pointer-alignment.Alignment
     value: Left
@@ -102,7 +102,5 @@ CheckOptions:
   # Namespaces, macros:
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
-  - key: readability-identifier-naming.ConstantCase
-    value: camelBack
   # - key: readability-identifier-naming.MacroDefinitionCase
   #   value: UPPER_CASE

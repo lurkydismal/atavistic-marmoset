@@ -16,8 +16,8 @@ using settings_t = struct settings {
 
     window::window_t window;
     controls::controls_t controls;
-    static inline constexpr const std::string_view version = "0.1";
-    static inline constexpr const std::string_view identifier =
+    static inline constexpr std::string_view version = "0.1";
+    static inline constexpr std::string_view identifier =
         window::window_t::name;
 };
 

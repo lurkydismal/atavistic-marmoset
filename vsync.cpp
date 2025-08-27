@@ -37,10 +37,10 @@ auto init( const vsync_t _vsyncType, const float _desiredFPS ) -> bool {
                 static_cast< float >( _desiredFPS ) );
         }
 
-        log::info( std ::format( "Setting vsync to {} FPS", _desiredFPS ) );
+        log::info( "Setting vsync to {} FPS", _desiredFPS );
 
-        log::debug( std ::format( "Vsync sleep time set to {} nanoseconds",
-                                  g_sleepTime.tv_nsec ) );
+        log::debug( "Vsync sleep time set to {} nanoseconds",
+                    g_sleepTime.tv_nsec );
 
         l_returnValue = true;
     }
