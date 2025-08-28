@@ -4,7 +4,6 @@
 #include <print>
 #include <source_location>
 #include <string_view>
-#include <utility>
 
 #include "common.hpp"
 
@@ -58,7 +57,7 @@ inline void _variable( std::string_view _variableName,
                            std::source_location::current() ) {
     debug( "{}:{} | {} = '0x{:016x}'", _sourceLocation.file_name(),
            _sourceLocation.line(), _variableName,
-           reinterpret_cast< uintptr_t >( _variable ) );
+           std::bit_cast< uintptr_t >( _variable ) );
 }
 
 #define variable( _variableToLog ) _variable( #_variableToLog, _variableToLog )

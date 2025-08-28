@@ -117,7 +117,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                             }
 
                             l_platformData.nwh =
-                                reinterpret_cast< void* >( l_windowNumber );
+                                std::bit_cast< void* >( l_windowNumber );
                             l_platformData.ndt = l_display;
                         }
 

@@ -1,6 +1,5 @@
 #include "shader.hpp"
 
-#include <cstdint>
 #include <fstream>
 #include <span>
 
@@ -33,7 +32,8 @@ auto load( const std::string _name ) -> bgfx::ShaderHandle {
         {
             const auto l_shaderInMemoryView =
                 std::span( reinterpret_cast< char* >( l_shaderInMemory->data ),
-                           l_shaderInMemory->size );
+                           ( l_shaderInMemory->size /
+                             sizeof( auto( l_shaderInMemory->data ) ) ) );
 
             l_result = !!( l_inputFileStream.read( l_shaderInMemoryView.data(),
                                                    l_fileSize ) );
