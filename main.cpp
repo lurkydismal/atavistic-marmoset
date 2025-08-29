@@ -51,11 +51,11 @@ auto main() -> int {
             runtime::event_t l_event{};
 
             const auto l_handleEvents = [ & ] {
-                std::vector< runtime::event_t > l_events;
+                std::vector< runtime::event_t > l_events( 16 );
 
                 // Poll events
                 while ( SDL_PollEvent( &l_event ) ) {
-                    l_events.push_back( l_event );
+                    l_events.emplace_back( l_event );
                 }
 
                 return ( std::ranges::all_of(
@@ -65,7 +65,7 @@ auto main() -> int {
                                                           _event ) );
                              } ) &&
                          (
-                             // NULL means last event on current frame
+                             // Empty means last event on current frame
                              runtime::event( l_applicationState, {} ) ) );
             };
 
