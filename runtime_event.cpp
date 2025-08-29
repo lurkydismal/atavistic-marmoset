@@ -10,11 +10,11 @@ auto onWindowResize( runtime::applicationState_t& _applicationState,
                      const float _height ) -> bool {
     bool l_returnValue = false;
 
-    if ( !_width || !_height ) {
-        goto EXIT;
-    }
+    do {
+        if ( !_width || !_height ) {
+            break;
+        }
 
-    {
         _applicationState.width = _width;
         _applicationState.height = _height;
 
@@ -23,57 +23,45 @@ auto onWindowResize( runtime::applicationState_t& _applicationState,
         bgfx::setViewRect( 0, 0, 0, _width, _height );
 
         l_returnValue = true;
-    }
+    } while ( false );
 
-EXIT:
     return ( l_returnValue );
 }
 
-auto handleKeyboardState( runtime::applicationState_t& _applicationState )
-    -> bool {
-    bool l_returnValue = false;
+void handleKeyboardState( runtime::applicationState_t& _applicationState ) {
+    static size_t l_lastInputFrame = 0;
+    const size_t l_totalFramesRendered = _applicationState.totalFramesRendered;
 
-    {
-        static size_t l_lastInputFrame = 0;
-        const size_t l_totalFramesRendered =
-            _applicationState.totalFramesRendered;
+    if ( l_lastInputFrame < l_totalFramesRendered ) {
+        controls::input_t l_input;
 
-        if ( l_lastInputFrame < l_totalFramesRendered ) {
-            controls::input_t l_input;
+        {
+            int l_keysAmount = 0;
+            const bool* l_keysState = SDL_GetKeyboardState( &l_keysAmount );
 
-            {
-                int l_keysAmount = 0;
-                const bool* l_keysState = SDL_GetKeyboardState( &l_keysAmount );
+            __builtin_assume( l_keysAmount == SDL_SCANCODE_COUNT );
 
-                __builtin_assume( l_keysAmount == SDL_SCANCODE_COUNT );
+            for ( auto [ _index, _isPressed ] :
+                  std::span( l_keysState, l_keysAmount ) |
+                      std::views::enumerate ) {
+                if ( _isPressed ) {
+                    auto l_scancode = static_cast< SDL_Scancode >( _index );
 
-                for ( auto [ _index, _isPressed ] :
-                      std::span( l_keysState, l_keysAmount ) |
-                          std::views::enumerate ) {
-                    if ( _isPressed ) {
-                        auto l_scancode = static_cast< SDL_Scancode >( _index );
+                    const controls::control_t& l_control =
+                        _applicationState.settings.controls.get( l_scancode );
 
-                        const controls::control_t& l_control =
-                            _applicationState.settings.controls.get(
-                                l_scancode );
-
-                        if ( l_control.scancode != SDL_SCANCODE_UNKNOWN ) {
-                            l_input.direction |= l_control.input.direction;
-                            l_input.button |= l_control.input.button;
-                        }
+                    if ( l_control.scancode != SDL_SCANCODE_UNKNOWN ) {
+                        l_input.direction |= l_control.input.direction;
+                        l_input.button |= l_control.input.button;
                     }
                 }
             }
-
-            _applicationState.currentInput = l_input;
         }
 
-        l_lastInputFrame = l_totalFramesRendered;
-
-        l_returnValue = true;
+        _applicationState.currentInput = l_input;
     }
 
-    return ( l_returnValue );
+    l_lastInputFrame = l_totalFramesRendered;
 }
 
 } // namespace
@@ -89,13 +77,9 @@ auto event( applicationState_t& _applicationState, const event_t& _event )
 
         // Empty means last event on current frame
         if ( l_isEventEmpty ) {
-            l_returnValue = handleKeyboardState( _applicationState );
+            handleKeyboardState( _applicationState );
 
-            if ( !l_returnValue ) {
-                log::error( "Handling keyboard state" );
-
-                goto EXIT;
-            }
+            l_returnValue = true;
 
         } else {
             switch ( _event.type ) {

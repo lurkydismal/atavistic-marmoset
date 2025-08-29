@@ -1,7 +1,10 @@
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
 
+#include <algorithm>
+#include <experimental/scope>
 #include <ranges>
+#include <vector>
 
 #include "log.hpp"
 #include "runtime.hpp"
@@ -32,10 +35,13 @@ auto main() -> int {
 
     printSupportedRenderers();
 
-    {
+    do {
         if ( !runtime::init( l_applicationState ) ) {
-            goto EXIT;
+            break;
         }
+
+        auto l_onExit = std::experimental::scope_exit(
+            [ & ] { runtime::quit( l_applicationState ); } );
 
         for ( ;; ) {
             vsync::begin();
@@ -44,14 +50,26 @@ auto main() -> int {
 
             runtime::event_t l_event{};
 
-            while ( SDL_PollEvent( &l_event ) ) {
-                if ( !runtime::event( l_applicationState, l_event ) ) {
-                    goto EXIT;
-                }
-            }
+            const auto l_handleEvents = [ & ] {
+                std::vector< runtime::event_t > l_events;
 
-            // NULL means last event on current frame
-            if ( !runtime::event( l_applicationState, {} ) ) {
+                // Poll events
+                while ( SDL_PollEvent( &l_event ) ) {
+                    l_events.push_back( l_event );
+                }
+
+                return ( std::ranges::all_of(
+                             l_events,
+                             [ & ]( const runtime::event_t& _event ) {
+                                 return ( runtime::event( l_applicationState,
+                                                          _event ) );
+                             } ) &&
+                         (
+                             // NULL means last event on current frame
+                             runtime::event( l_applicationState, {} ) ) );
+            };
+
+            if ( !l_handleEvents() ) {
                 break;
             }
 
@@ -63,10 +81,7 @@ auto main() -> int {
 
             ( l_applicationState.totalFramesRendered )++;
         }
-    }
-
-EXIT:
-    runtime::quit( l_applicationState );
+    } while ( false );
 
     return ( ( l_applicationState.status ) ? ( EXIT_SUCCESS )
                                            : ( EXIT_FAILURE ) );
