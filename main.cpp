@@ -48,14 +48,16 @@ auto main() -> int {
 
             SDL_PumpEvents();
 
-            runtime::event_t l_event{};
-
             const auto l_handleEvents = [ & ] {
                 std::vector< runtime::event_t > l_events( 16 );
 
                 // Poll events
-                while ( SDL_PollEvent( &l_event ) ) {
-                    l_events.emplace_back( l_event );
+                {
+                    runtime::event_t l_event{};
+
+                    while ( SDL_PollEvent( &l_event ) ) {
+                        l_events.emplace_back( l_event );
+                    }
                 }
 
                 return ( std::ranges::all_of(
