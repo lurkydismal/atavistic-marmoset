@@ -11,22 +11,22 @@
 #include "vsync.hpp"
 
 static void printSupportedRenderers() {
-    using rendererType_t = std::underlying_type_t< bgfx::RendererType::Enum >;
+    using rendererType_t = bgfx::RendererType::Enum;
 
-    std::array< bgfx::RendererType::Enum, bgfx::RendererType::Enum::Count >
-        l_supportedRenderers{};
+    std::array< rendererType_t, rendererType_t::Count > l_supportedRenderers{};
 
-    const rendererType_t l_supportedRenderersAmount =
-        bgfx::getSupportedRenderers( bgfx::getSupportedRenderers(),
-                                     l_supportedRenderers.data() );
+    bgfx::getSupportedRenderers( bgfx::getSupportedRenderers(),
+                                 l_supportedRenderers.data() );
 
     log::debug( "Supported renderers:" );
 
-    for ( rendererType_t _index :
-          std::views::iota( static_cast< rendererType_t >( 0 ),
-                            l_supportedRenderersAmount ) ) {
-        log::debug( " - {}", bgfx::getRendererName(
-                                 l_supportedRenderers.at( _index ) ) );
+    for ( const std::string_view _rendererName :
+          l_supportedRenderers |
+              std::views::filter( [ & ]( rendererType_t _rendererType ) {
+                  return ( _rendererType != rendererType_t::Noop );
+              } ) |
+              std::views::transform( bgfx::getRendererName ) ) {
+        log::debug( " - {}", _rendererName );
     }
 }
 
@@ -43,16 +43,19 @@ auto main() -> int {
         auto l_onExit = std::experimental::scope_exit(
             [ & ] { runtime::quit( l_applicationState ); } );
 
+        std::vector< runtime::event_t > l_events( 16 );
+
+        // Main loop
         for ( ;; ) {
             vsync::begin();
 
-            SDL_PumpEvents();
-
             const auto l_handleEvents = [ & ] {
-                std::vector< runtime::event_t > l_events( 16 );
-
                 // Poll events
                 {
+                    SDL_PumpEvents();
+
+                    l_events.clear();
+
                     runtime::event_t l_event{};
 
                     while ( SDL_PollEvent( &l_event ) ) {
