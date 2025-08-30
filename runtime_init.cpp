@@ -10,7 +10,7 @@ namespace runtime {
 auto init( applicationState_t& _applicationState ) -> bool {
     bool l_returnValue = false;
 
-    {
+    do {
         // Generate application state
         {
             // Metadata
@@ -29,7 +29,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                              .c_str() ) ) {
                     log::error( "Setting render scale: '{}'", SDL_GetError() );
 
-                    goto EXIT;
+                    break;
                 }
             }
 
@@ -58,7 +58,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                     log::error( "Window or Renderer creation: '{}'",
                                 SDL_GetError() );
 
-                    goto EXIT;
+                    break;
                 }
 
                 _applicationState.width =
@@ -101,7 +101,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                             if ( !l_display ) {
                                 log::error( "Obtaining X11 display" );
 
-                                goto EXIT;
+                                break;
                             }
 
                             Window l_windowNumber = SDL_GetNumberProperty(
@@ -113,7 +113,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                             if ( !l_windowNumber ) {
                                 log::error( "Obtaining X11 window" );
 
-                                goto EXIT;
+                                break;
                             }
 
                             l_platformData.nwh =
@@ -142,7 +142,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                                                  &l_windowHeight ) ) {
                             log::error( "Querying window size" );
 
-                            goto EXIT;
+                            break;
                         }
 
                         l_initParameters.resolution.width = l_windowWidth;
@@ -166,7 +166,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
                 if ( !bgfx::init( l_initParameters ) ) {
                     log::error( "Initializing renderer" );
 
-                    goto EXIT;
+                    break;
                 }
 
                 log::info( "Current renderer: {}",
@@ -191,7 +191,7 @@ auto init( applicationState_t& _applicationState ) -> bool {
             if ( !_applicationState.load() ) {
                 log::error( "Loading application state" );
 
-                goto EXIT;
+                break;
             }
         }
 
@@ -200,19 +200,17 @@ auto init( applicationState_t& _applicationState ) -> bool {
                            _applicationState.settings.window.desiredFPS ) ) {
             log::error( "Initializing Vsync" );
 
-            goto EXIT;
+            break;
         }
 
         // FPS
-        // Does not fail
         FPS::init( _applicationState.totalFramesRendered );
 
         log::debug( "Initialized" );
 
         l_returnValue = true;
-    }
+    } while ( false );
 
-EXIT:
     return ( l_returnValue );
 }
 

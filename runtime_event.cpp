@@ -68,18 +68,21 @@ void handleKeyboardState( runtime::applicationState_t& _applicationState ) {
 
 namespace runtime {
 
+// FIX: Remove goto
 auto event( applicationState_t& _applicationState, const event_t& _event )
     -> bool {
     bool l_returnValue = false;
 
-    {
-        const bool l_isEventEmpty = ( _event.type == 0 );
+    do {
+        const event_t l_emptyEVent{};
+
+        const bool l_isEventEmpty =
+            ( __builtin_memcmp( &_event, &l_emptyEVent, sizeof( _event ) ) ==
+              0 );
 
         // Empty means last event on current frame
         if ( l_isEventEmpty ) {
             handleKeyboardState( _applicationState );
-
-            l_returnValue = true;
 
         } else {
             switch ( _event.type ) {
@@ -113,9 +116,9 @@ auto event( applicationState_t& _applicationState, const event_t& _event )
         }
 
         l_returnValue = true;
-    }
+    EXIT:
+    } while ( false );
 
-EXIT:
     return ( l_returnValue );
 }
 

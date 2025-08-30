@@ -20,32 +20,33 @@ auto init( const vsync_t _vsyncType, const float _desiredFPS ) -> bool {
 
     bool l_returnValue = false;
 
-    if ( g_desiredFPS ) {
-        log::error( "Alraedy initialized" );
+    do {
+        if ( g_desiredFPS ) {
+            log::error( "Already initialized" );
 
-        goto EXIT;
-    }
-
-    {
-        g_desiredFPS = _desiredFPS;
-        g_vsyncType = _vsyncType;
-
-        if ( _vsyncType == vsync_t::off ) {
-            g_sleepTime.tv_sec = 0;
-            g_sleepTime.tv_nsec = millisecondsToNanoseconds(
-                g_oneSecondInMilliseconds /
-                static_cast< float >( _desiredFPS ) );
+            break;
         }
 
-        log::info( "Setting vsync to {} FPS", _desiredFPS );
+        {
+            g_desiredFPS = _desiredFPS;
+            g_vsyncType = _vsyncType;
 
-        log::debug( "Vsync sleep time set to {} nanoseconds",
-                    g_sleepTime.tv_nsec );
+            if ( _vsyncType == vsync_t::off ) {
+                g_sleepTime = {
+                    .tv_sec = 0,
+                    .tv_nsec = static_cast< time_t >( millisecondsToNanoseconds(
+                        g_oneSecondInMilliseconds / _desiredFPS ) ) };
+            }
+
+            log::info( "Setting vsync to {} FPS", _desiredFPS );
+
+            log::debug( "Vsync sleep time set to {} nanoseconds",
+                        g_sleepTime.tv_nsec );
+        }
 
         l_returnValue = true;
-    }
+    } while ( false );
 
-EXIT:
     return ( l_returnValue );
 }
 

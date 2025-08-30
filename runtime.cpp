@@ -1,14 +1,10 @@
 #include "runtime.hpp"
 
-#if 0
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
-#endif
 #include <bx/math.h>
 
 #include <vector>
 
+#include "assimp.hpp"
 #include "bgfx_helper.hpp"
 #include "log.hpp"
 #include "shader.hpp"
@@ -38,176 +34,186 @@ namespace runtime {
 auto applicationState_t::load() -> bool {
     bool l_returnValue = false;
 
-    if ( vertexShaderPath.empty() ) {
-        log::variable( vertexShaderPath );
+    do {
+        if ( vertexShaderPath.empty() ) {
+            log::variable( vertexShaderPath );
 
-        log::error( "Vertex shader path is empty" );
+            log::error( "Vertex shader path is empty" );
 
-        goto EXIT;
-    }
+            break;
+        }
 
-    if ( fragmentShaderPath.empty() ) {
-        log::variable( fragmentShaderPath );
+        if ( fragmentShaderPath.empty() ) {
+            log::variable( fragmentShaderPath );
 
-        log::error( "Fragment shader path is empty" );
+            log::error( "Fragment shader path is empty" );
 
-        goto EXIT;
-    }
+            break;
+        }
 
-    if ( bgfx::isValid( shaderProgram ) ) {
-        log::variable( shaderProgram );
+        if ( bgfx::isValid( shaderProgram ) ) {
+            log::variable( shaderProgram );
 
-        log::error( "Shader program is already loaded" );
+            log::error( "Shader program is already loaded" );
 
-        goto EXIT;
-    }
-
-    {
-        // Build shader program
-        {
-            log::info( "Loading vertex shader" );
-
-            bgfx::ShaderHandle l_vertexShaderHandle =
-                shader::load( vertexShaderPath );
-
-            if ( !bgfx::isValid( l_vertexShaderHandle ) ) {
-                log::error( "Loading vertex shader" );
-
-                goto EXIT;
-            }
-
-            log::info( "Loading fragment shader" );
-
-            bgfx::ShaderHandle l_fragmentShaderHandle =
-                shader::load( fragmentShaderPath );
-
-            if ( !bgfx::isValid( l_fragmentShaderHandle ) ) {
-                log::error( "Loading fragment shader" );
-
-                bgfx::destroy( l_vertexShaderHandle );
-
-                goto EXIT;
-            }
-
-            log::info( "Compiling shaders" );
-
-            shaderProgram = bgfx::createProgram( l_vertexShaderHandle,
-                                                 l_fragmentShaderHandle, true );
-
-            if ( !bgfx::isValid( shaderProgram ) ) {
-                log::error( "Failed to create program" );
-
-                goto EXIT;
-            }
+            break;
         }
 
         {
-            // vertex layout: position (float3) + texcoord0 (float2)
-            vertexLayout.begin()
-                .add( bgfx::Attrib::Position, 3, bgfx::AttribType::Float )
-                // .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
-                .end();
+            // Build shader program
+            {
+                log::info( "Loading vertex shader" );
+
+                bgfx::ShaderHandle l_vertexShaderHandle =
+                    shader::load( vertexShaderPath );
+
+                if ( !bgfx::isValid( l_vertexShaderHandle ) ) {
+                    log::error( "Loading vertex shader" );
+
+                    break;
+                }
+
+                log::info( "Loading fragment shader" );
+
+                bgfx::ShaderHandle l_fragmentShaderHandle =
+                    shader::load( fragmentShaderPath );
+
+                if ( !bgfx::isValid( l_fragmentShaderHandle ) ) {
+                    log::error( "Loading fragment shader" );
+
+                    bgfx::destroy( l_vertexShaderHandle );
+
+                    break;
+                }
+
+                log::info( "Compiling shaders" );
+
+                shaderProgram = bgfx::createProgram(
+                    l_vertexShaderHandle, l_fragmentShaderHandle, true );
+
+                if ( !bgfx::isValid( shaderProgram ) ) {
+                    log::error( "Failed to create program" );
+
+                    break;
+                }
+            }
+
+            {
+                // vertex layout: position (float3) + texcoord0 (float2)
+                vertexLayout.begin()
+                    .add( bgfx::Attrib::Position, 3, bgfx::AttribType::Float )
+                    // .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float
+                    // )
+                    .end();
 
 #if 0
         s_texColor =
             bgfx::createUniform( "s_texColor", bgfx::UniformType::Sampler );
 #endif
-        }
+            }
+
+            // Load FBX using Assimp
+            {
+                Assimp::Importer l_importer;
+                const Assimp::aiScene* l_scene = l_importer.ReadFile(
+                    modelPath,
+                    aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
+                        aiProcess_GenSmoothNormals |
+                        aiProcess_CalcTangentSpace |
+                        aiProcess_ImproveCacheLocality | aiProcess_FlipUVs );
+
+                if ( !l_scene ) {
+                    log::error( "Assimp ReadFile failed: {}",
+                                l_importer.GetErrorString() );
+                    goto EXIT;
+                }
+
+                // Verify counts
+                {
+                    log::info(
+                        "Assimp: meshes = {}, materials = {}, "
+                        "embedded textures = {}",
+                        l_scene->mNumMeshes, l_scene->mNumMaterials,
+                        l_scene->mNumTextures );
+
+                    // Print embedded textures if any
+                    for ( unsigned l_t = 0; l_t < l_scene->mNumTextures;
+                          ++l_t ) {
+                        const Assimp::aiTexture* l_at =
+                            l_scene->mTextures[ l_t ];
+                        const char* l_name = ( l_at && l_at->mFilename.length )
+                                                 ? l_at->mFilename.C_Str()
+                                                 : "<no name>";
+                        log::debug(
+                            "Embedded texture[{}]: name='{}' width={} "
+                            "height={}",
+                            l_t, l_name, l_at ? l_at->mWidth : 0,
+                            l_at ? l_at->mHeight : 0 );
+                    }
+                }
+
+                if ( !l_scene->HasMeshes() ) {
+                    log::error( "FBX contains no meshes" );
+                    goto EXIT;
+                }
+
+                // Clear any existing meshes
+                meshes.clear();
 
 #if 0
-        // Load FBX using Assimp
-        {
-            Assimp::Importer l_importer;
-            const aiScene* l_scene = l_importer.ReadFile(
-                modelPath,
-                aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
-                    aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
-                    aiProcess_ImproveCacheLocality | aiProcess_FlipUVs );
+                // helper to create bgfx texture from raw RGBA pixels
+                auto l_createBgfxTextureFromRgba =
+                    [ & ]( const unsigned char* _rgba, int _w,
+                           int _h ) -> bgfx::TextureHandle {
+                    const auto l_size = uint32_t( _w * _h * 4 );
+                    const bgfx::Memory* l_mem = bgfx::alloc( l_size );
+                    memcpy( l_mem->data, _rgba, l_size );
+                    return bgfx::createTexture2D(
+                        ( uint16_t )_w, ( uint16_t )_h, false, 1,
+                        bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE, l_mem );
+                };
 
-            if ( !l_scene ) {
-                log::error( std::string( "Assimp ReadFile failed: " ) +
-                            l_importer.GetErrorString() );
-                goto EXIT;
-            }
-
-            // Verify counts
-            {
-                log::info(
-                    "Assimp: meshes = {}, materials = {}, "
-                                 "embedded textures = {}",
-                                 l_scene->mNumMeshes, l_scene->mNumMaterials,
-                                 l_scene->mNumTextures );
-                // Print embedded textures if any
-                for ( unsigned l_t = 0; l_t < l_scene->mNumTextures; ++l_t ) {
-                    const aiTexture* l_at = l_scene->mTextures[ l_t ];
-                    const char* l_name = ( l_at && l_at->mFilename.length )
-                                             ? l_at->mFilename.C_Str()
-                                             : "<no name>";
-                    log::debug(                         "Embedded texture[{}]: name='{}' width={} height={}",
-                        l_t, l_name, l_at ? l_at->mWidth : 0,
-                        l_at ? l_at->mHeight : 0 );
-                }
-            }
-
-            if ( !l_scene->HasMeshes() ) {
-                log::error( "FBX contains no meshes" );
-                goto EXIT;
-            }
-
-            // Clear any existing meshes
-            meshes.clear();
-
-            // helper to create bgfx texture from raw RGBA pixels
-            auto l_createBgfxTextureFromRgba =
-                [ & ]( const unsigned char* _rgba, int _w,
-                       int _h ) -> bgfx::TextureHandle {
-                const auto l_size = uint32_t( _w * _h * 4 );
-                const bgfx::Memory* l_mem = bgfx::alloc( l_size );
-                memcpy( l_mem->data, _rgba, l_size );
-                return bgfx::createTexture2D(
-                    ( uint16_t )_w, ( uint16_t )_h, false, 1,
-                    bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE, l_mem );
-            };
-
-            // helper to create texture from aiTexture (embedded)
-            auto l_createTextureFromAiTexture =
-                [ & ]( const aiTexture* _at ) -> bgfx::TextureHandle {
-                if ( !_at )
-                    return BGFX_INVALID_HANDLE;
-
-                // compressed (mHeight == 0): at->pcData is a compressed image
-                // (PNG/JPEG) of size at->mWidth
-                if ( _at->mHeight == 0 && _at->mWidth > 0 ) {
-                    int l_w = 0, l_h = 0, l_comp = 0;
-                    stbi_uc* l_decoded = stbi_load_from_memory(
-                        reinterpret_cast< const stbi_uc* >( _at->pcData ),
-                        static_cast< int >( _at->mWidth ), &l_w, &l_h, &l_comp,
-                        4 );
-                    if ( !l_decoded ) {
-                        log::warning(
-                            "Failed to decode embedded compressed texture" );
+                // helper to create texture from aiTexture (embedded)
+                auto l_createTextureFromAiTexture =
+                    [ & ]( const aiTexture* _at ) -> bgfx::TextureHandle {
+                    if ( !_at )
                         return BGFX_INVALID_HANDLE;
+
+                    // compressed (mHeight == 0): at->pcData is a compressed
+                    // image (PNG/JPEG) of size at->mWidth
+                    if ( _at->mHeight == 0 && _at->mWidth > 0 ) {
+                        int l_w = 0, l_h = 0, l_comp = 0;
+                        stbi_uc* l_decoded = stbi_load_from_memory(
+                            reinterpret_cast< const stbi_uc* >( _at->pcData ),
+                            static_cast< int >( _at->mWidth ), &l_w, &l_h,
+                            &l_comp, 4 );
+                        if ( !l_decoded ) {
+                            log::warning(
+                                "Failed to decode embedded compressed "
+                                "texture" );
+                            return BGFX_INVALID_HANDLE;
+                        }
+                        bgfx::TextureHandle l_th =
+                            l_createBgfxTextureFromRgba( l_decoded, l_w, l_h );
+                        stbi_image_free( l_decoded );
+                        return l_th;
                     }
-                    bgfx::TextureHandle l_th =
-                        l_createBgfxTextureFromRgba( l_decoded, l_w, l_h );
-                    stbi_image_free( l_decoded );
-                    return l_th;
-                }
 
-                // uncompressed: mWidth = width, mHeight = height and pcData raw
-                // RGBA
-                if ( _at->mHeight > 0 && _at->mWidth > 0 ) {
-                    const int l_w = _at->mWidth;
-                    const int l_h = _at->mHeight;
-                    const auto* l_data =
-                        reinterpret_cast< const unsigned char* >( _at->pcData );
-                    return l_createBgfxTextureFromRgba( l_data, l_w, l_h );
-                }
+                    // uncompressed: mWidth = width, mHeight = height and pcData
+                    // raw RGBA
+                    if ( _at->mHeight > 0 && _at->mWidth > 0 ) {
+                        const int l_w = _at->mWidth;
+                        const int l_h = _at->mHeight;
+                        const auto* l_data =
+                            reinterpret_cast< const unsigned char* >(
+                                _at->pcData );
+                        return l_createBgfxTextureFromRgba( l_data, l_w, l_h );
+                    }
 
-                return BGFX_INVALID_HANDLE;
-            };
+                    return BGFX_INVALID_HANDLE;
+                };
 
-            // iterate all meshes
+                // iterate all meshes
             for ( unsigned l_mi = 0; l_mi < l_scene->mNumMeshes; ++l_mi ) {
                 const aiMesh* l_am = l_scene->mMeshes[ l_mi ];
 
@@ -352,35 +358,36 @@ auto applicationState_t::load() -> bool {
                     l_mesh.vertexCount, l_mesh.indexCount,
                     bgfx::isValid( l_mesh.texture ) );
             } // end for meshes
-        }
 #endif
+            }
 
-        // TODO: Implement with camera_t
-        // TODO: Reduntant
-        {
-            using mat4x4_t = std::array< float, 16 >;
+            // TODO: Implement with camera_t
+            // TODO: Reduntant
+            {
+                using mat4x4_t = std::array< float, 16 >;
 
-            mat4x4_t l_view{};
-            mat4x4_t l_proj{};
+                mat4x4_t l_view{};
+                mat4x4_t l_proj{};
 
-            bx::Vec3 l_eye{ 0.0f, 0.0f, -5.0f };
-            bx::Vec3 l_at{ 0.0f, 0.0f, 0.0f };
+                bx::Vec3 l_eye{ 0.0f, 0.0f, -5.0f };
+                bx::Vec3 l_at{ 0.0f, 0.0f, 0.0f };
 
-            bx::mtxLookAt( l_view.data(), l_eye, l_at );
+                bx::mtxLookAt( l_view.data(), l_eye, l_at );
 
-            constexpr const float l_FOV = 60.0f;
-            const float l_aspect = ( width / height );
+                constexpr const float l_FOV = 60.0f;
+                const float l_aspect = ( width / height );
 
-            bx::mtxProj( l_proj.data(), l_FOV, l_aspect, 0.1f, 100.0f,
-                         bgfx::getCaps()->homogeneousDepth );
+                bx::mtxProj( l_proj.data(), l_FOV, l_aspect, 0.1f, 100.0f,
+                             bgfx::getCaps()->homogeneousDepth );
 
-            bgfx::setViewTransform( 0, l_view.data(), l_proj.data() );
+                bgfx::setViewTransform( 0, l_view.data(), l_proj.data() );
+            }
         }
-    }
 
-    l_returnValue = true;
+        l_returnValue = true;
+    EXIT:
+    } while ( false );
 
-EXIT:
     return ( l_returnValue );
 }
 
