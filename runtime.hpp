@@ -5,12 +5,21 @@
 
 #include <atomic>
 #include <string>
+#include <vector>
 
 #include "camera.hpp"
 #include "controls.hpp"
 #include "settings.hpp"
 
 namespace runtime {
+
+struct Mesh {
+    bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle ibh = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle texture = BGFX_INVALID_HANDLE;
+    uint32_t indexCount{};
+    uint32_t vertexCount{};
+};
 
 using event_t = SDL_Event;
 
@@ -41,6 +50,8 @@ using applicationState_t = struct applicationState {
     std::string modelPath;
 
     bgfx::ProgramHandle shaderProgram = BGFX_INVALID_HANDLE;
+    std::vector< Mesh > meshes;
+    bgfx::UniformHandle s_texColor = BGFX_INVALID_HANDLE;
 
     bool status = false;
 };

@@ -17,3 +17,4 @@
 **/*.data
 ***/compile_commands.json
 **/.cache
+**/*.bin

@@ -1,3 +1,5 @@
+#include <bx/math.h>
+
 #include "runtime.hpp"
 
 namespace runtime {
@@ -15,37 +17,43 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
                 bgfx::touch( 0 );
             }
 
-            // simple model rotation
+            {
+                // simple model rotation
+                static double l_t = 0.0;
+                l_t += 0.016; // ~60fps step
+                float l_model[ 16 ];
+                bx::mtxRotateY( l_model, float( l_t ) );
+
+                // submit all meshes
+                for ( const auto& l_mesh : _applicationState.meshes ) {
+                    if ( !bgfx::isValid( l_mesh.vbh ) ||
+                         !bgfx::isValid( l_mesh.ibh ) )
+                        continue;
+
+                    // set model transform (per-mesh you could compute different
+                    // transforms)
+                    bgfx::setTransform( l_model );
+
+                    bgfx::setVertexBuffer( 0, l_mesh.vbh );
+                    bgfx::setIndexBuffer( l_mesh.ibh );
 #if 0
-            static double t = 0.0;
-            t += 0.016; // ~60fps step
-            float model[ 16 ];
-            bx::mtxRotateY( model, float( t ) );
-
-            // submit all meshes
-            for ( const auto& mesh : meshes ) {
-                if ( !bgfx::isValid( mesh.vbh ) || !bgfx::isValid( mesh.ibh ) )
-                    continue;
-
-                // set model transform (per-mesh you could compute different
-                // transforms)
-                bgfx::setTransform( model );
-
-                bgfx::setVertexBuffer( 0, mesh.vbh );
-                bgfx::setIndexBuffer( mesh.ibh );
-                if ( bgfx::isValid( mesh.texture ) ) {
-                    bgfx::setTexture( 0, s_texColor, mesh.texture );
-                }
-                bgfx::setState( BGFX_STATE_DEFAULT );
-                bgfx::submit( 0, shaderProgram );
-            }
+                    if ( bgfx::isValid( l_mesh.texture ) ) {
+                        bgfx::setTexture( 0, _applicationState.s_texColor,
+                                          l_mesh.texture );
+                    }
 #endif
+                    bgfx::setState( BGFX_STATE_DEFAULT );
+                    bgfx::submit( 0, _applicationState.shaderProgram );
+                }
 
-            // TODO: Background
-            // TODO: Scene
+                // TODO: Background
+                // TODO: Scene
+            }
 
             // End frame
-            bgfx::frame();
+            {
+                bgfx::frame();
+            }
         }
 
         // TODO: Logic
