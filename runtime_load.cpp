@@ -96,12 +96,11 @@ auto applicationState_t::load() -> bool {
                     .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
                     .end();
 
-#if 1
+#if 0
                 s_texColor = bgfx::createUniform( "s_texColor",
                                                   bgfx::UniformType::Sampler );
-                u_modelViewProj = bgfx::createUniform(
-                    "u_modelViewProj", bgfx::UniformType::Mat4 );
 #endif
+                // m_timeOffset = bx::getHPCounter();
             }
 
             // Load FBX using Assimp
@@ -153,7 +152,7 @@ auto applicationState_t::load() -> bool {
                 // Clear any existing meshes
                 meshes.clear();
 
-#if 1
+#if 0
                 // helper to create bgfx texture from raw RGBA pixels
                 auto l_createBgfxTextureFromRgba =
                     [ & ]( const unsigned char* _rgba, int _w,
@@ -218,7 +217,8 @@ auto applicationState_t::load() -> bool {
                     }
 
                     struct vertex {
-                        float x, y, z, u, v;
+                        float x, y, z;
+                        float u, v;
                     };
                     std::vector< vertex > l_verts;
                     l_verts.reserve( l_am->mNumVertices );
@@ -270,7 +270,8 @@ auto applicationState_t::load() -> bool {
 
                     l_mesh.vbh =
                         bgfx::createVertexBuffer( l_vbMem, vertexLayout );
-                    l_mesh.ibh = bgfx::createIndexBuffer( l_ibMem );
+                    l_mesh.ibh =
+                        bgfx::createIndexBuffer( l_ibMem, BGFX_BUFFER_INDEX32 );
 
                     // texture: prefer embedded in material or in
                     // scene->mTextures
@@ -334,6 +335,7 @@ auto applicationState_t::load() -> bool {
                     }
 #endif
 
+#if 0
                     // fallback: if no texture loaded, but scene has embedded
                     // textures (single texture use case)
                     if ( !bgfx::isValid( l_mesh.texture ) &&
@@ -347,20 +349,12 @@ auto applicationState_t::load() -> bool {
                                 "scene->mTextures[0]" );
                         }
                     }
-
-                    if ( true ) {
-                        // final fallback white texture
-#if 0
-                    if ( !bgfx::isValid( l_mesh.texture ) ) {
 #endif
-#if 0
+
+                    // final fallback white texture
+                    if ( !bgfx::isValid( l_mesh.texture ) ) {
                         const uint8_t l_white[ 4 ] = { 0xFF, 0xFF, 0xFF, 0xFF };
                         const bgfx::Memory* l_mem = bgfx::makeRef( l_white, 4 );
-#endif
-                        const uint32_t l_whitePixel =
-                            0xFFFFFFFF; // RGBA8: 255,255,255,255
-                        const bgfx::Memory* l_mem =
-                            bgfx::copy( &l_whitePixel, sizeof( l_whitePixel ) );
                         l_mesh.texture = bgfx::createTexture2D(
                             1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
                             l_mem );
@@ -377,6 +371,7 @@ auto applicationState_t::load() -> bool {
             // TODO: Implement with camera_t
             // TODO: Reduntant
             {
+#if 0
                 using mat4x4_t = std::array< float, 16 >;
 
                 mat4x4_t l_view{};
@@ -394,9 +389,10 @@ auto applicationState_t::load() -> bool {
                              bgfx::getCaps()->homogeneousDepth );
 
                 bgfx::setViewTransform( 0, l_view.data(), l_proj.data() );
+#endif
 
-                bgfx::setViewRect( 0, 0, 0, ( uint16_t )logicalWidth,
-                                   ( uint16_t )logicalHeight );
+                bgfx::setViewClear( 0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
+                                    0x303030ff );
             }
         }
 

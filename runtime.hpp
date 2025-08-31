@@ -52,7 +52,6 @@ using applicationState_t = struct applicationState {
     bgfx::ProgramHandle shaderProgram = BGFX_INVALID_HANDLE;
     std::vector< Mesh > meshes;
     bgfx::UniformHandle s_texColor = BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle u_modelViewProj = BGFX_INVALID_HANDLE;
 
     bool status = false;
 };
