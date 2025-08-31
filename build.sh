@@ -4,8 +4,8 @@ clear
 set -e
 
 common_flags='-march=native -std=gnu++26 -ffunction-sections -fdata-sections -fPIC -fopenmp-simd -fno-short-enums -Wall -Wextra -Wno-gcc-compat -Wno-incompatible-pointer-types-discards-qualifiers -ggdb3 -fno-rtti -fno-exceptions -fno-threadsafe-statics -fno-unwind-tables'
-compiler_flags='-flto=jobserver -fno-ident -D DEBUG -D BX_CONFIG_DEBUG=1 -Og'
-linker_flags=" -flto -fuse-ld=mold -Wl,-O1 -Wl,--gc-sections -Wl,--no-eh-frame-hdr -rdynamic -Wl,-rpath,\$ORIGIN"
+compiler_flags='-fno-ident -D DEBUG -D BX_CONFIG_DEBUG=1 -Og'
+linker_flags="-fuse-ld=mold -Wl,-O1 -Wl,--gc-sections -Wl,--no-eh-frame-hdr -rdynamic -Wl,-rpath,\$ORIGIN"
 glsl_version=120
 
 vertex_filename='vs'

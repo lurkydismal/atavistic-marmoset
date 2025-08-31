@@ -93,13 +93,14 @@ auto applicationState_t::load() -> bool {
                 // vertex layout: position (float3) + texcoord0 (float2)
                 vertexLayout.begin()
                     .add( bgfx::Attrib::Position, 3, bgfx::AttribType::Float )
-                    // .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float
-                    // )
+                    .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
                     .end();
 
-#if 0
+#if 1
                 s_texColor = bgfx::createUniform( "s_texColor",
                                                   bgfx::UniformType::Sampler );
+                u_modelViewProj = bgfx::createUniform(
+                    "u_modelViewProj", bgfx::UniformType::Mat4 );
 #endif
             }
 
@@ -331,6 +332,7 @@ auto applicationState_t::load() -> bool {
                             }
                         }
                     }
+#endif
 
                     // fallback: if no texture loaded, but scene has embedded
                     // textures (single texture use case)
@@ -345,12 +347,20 @@ auto applicationState_t::load() -> bool {
                                 "scene->mTextures[0]" );
                         }
                     }
-#endif
 
-                    // final fallback white texture
+                    if ( true ) {
+                        // final fallback white texture
+#if 0
                     if ( !bgfx::isValid( l_mesh.texture ) ) {
+#endif
+#if 0
                         const uint8_t l_white[ 4 ] = { 0xFF, 0xFF, 0xFF, 0xFF };
                         const bgfx::Memory* l_mem = bgfx::makeRef( l_white, 4 );
+#endif
+                        const uint32_t l_whitePixel =
+                            0xFFFFFFFF; // RGBA8: 255,255,255,255
+                        const bgfx::Memory* l_mem =
+                            bgfx::copy( &l_whitePixel, sizeof( l_whitePixel ) );
                         l_mesh.texture = bgfx::createTexture2D(
                             1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
                             l_mem );
@@ -384,6 +394,9 @@ auto applicationState_t::load() -> bool {
                              bgfx::getCaps()->homogeneousDepth );
 
                 bgfx::setViewTransform( 0, l_view.data(), l_proj.data() );
+
+                bgfx::setViewRect( 0, 0, 0, ( uint16_t )logicalWidth,
+                                   ( uint16_t )logicalHeight );
             }
         }
 
