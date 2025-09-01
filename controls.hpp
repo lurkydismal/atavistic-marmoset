@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_scancode.h>
 
 #include <cstdint>
 #include <string_view>
@@ -47,6 +48,8 @@ constexpr void operator|=( direction_t& _lhs, direction_t _rhs ) {
 
 enum class button_t : uint8_t {
     none = 0,
+    zoom = 0b1,
+    dilate = 0b10,
 };
 
 [[nodiscard]] constexpr auto operator|( button_t _lhs, button_t _rhs )
@@ -70,6 +73,10 @@ constexpr void operator|=( button_t& _lhs, button_t _rhs ) {
 }
 
 using input_t = struct input {
+    input( direction_t _direction, button_t _button = button_t::none )
+        : direction( _direction ), button( _button ) {}
+    input( button_t _button, direction_t _direction = direction_t::none )
+        : direction( _direction ), button( _button ) {}
     input() = default;
     input( const input& ) = default;
     input( input&& ) = default;
@@ -79,10 +86,11 @@ using input_t = struct input {
 
     direction_t direction = direction_t::none;
     button_t button = button_t::none;
-    size_t duration = 0;
 };
 
 using control_t = struct control {
+    control( SDL_Scancode _scancode, input_t _input )
+        : scancode( _scancode ), input( _input ) {}
     control() = default;
     control( const control& ) = default;
     control( control&& ) = default;
@@ -90,8 +98,8 @@ using control_t = struct control {
     auto operator=( const control& ) -> control& = default;
     auto operator=( control&& ) -> control& = default;
 
-    [[nodiscard]] inline constexpr auto check( const SDL_Scancode _scancode )
-        -> bool {
+    [[nodiscard]] inline constexpr auto check(
+        const SDL_Scancode _scancode ) const -> bool {
         return ( scancode == _scancode );
     }
 
@@ -101,6 +109,18 @@ using control_t = struct control {
 
 // All available controls
 using controls_t = struct controls {
+    controls( control_t _up,
+              control_t _down,
+              control_t _left,
+              control_t _right,
+              control_t _zoom,
+              control_t _dilate )
+        : up( _up ),
+          down( _down ),
+          left( _left ),
+          right( _right ),
+          zoom( _zoom ),
+          dilate( _dilate ) {}
     controls() = default;
     controls( const controls& ) = default;
     controls( controls&& ) = default;
@@ -108,19 +128,12 @@ using controls_t = struct controls {
     auto operator=( const controls& ) -> controls& = default;
     auto operator=( controls&& ) -> controls& = default;
 
-    [[nodiscard]] inline constexpr auto get( const SDL_Scancode _scancode )
-        -> const control_t {
-        if ( up.check( _scancode ) ) {
-            return ( up );
-
-        } else if ( down.check( _scancode ) ) {
-            return ( down );
-
-        } else if ( left.check( _scancode ) ) {
-            return ( left );
-
-        } else if ( right.check( _scancode ) ) {
-            return ( right );
+    [[nodiscard]] inline constexpr auto get(
+        const SDL_Scancode _scancode ) const -> const control_t {
+        for ( auto& _control : { up, down, left, right, zoom, dilate } ) {
+            if ( _control.check( _scancode ) ) {
+                return ( _control );
+            }
         }
 
         return {};
@@ -131,6 +144,10 @@ using controls_t = struct controls {
     control_t down;
     control_t left;
     control_t right;
+
+    // Actions
+    control_t zoom;
+    control_t dilate;
 };
 
 } // namespace controls

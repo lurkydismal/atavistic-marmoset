@@ -15,7 +15,13 @@ using settings_t = struct settings {
     auto operator=( settings&& ) -> settings& = default;
 
     window::window_t window;
-    controls::controls_t controls;
+    controls::controls_t controls{
+        { SDL_SCANCODE_K, { controls::direction_t::up } },
+        { SDL_SCANCODE_J, { controls::direction_t::down } },
+        { SDL_SCANCODE_H, { controls::direction_t::left } },
+        { SDL_SCANCODE_L, { controls::direction_t::right } },
+        { SDL_SCANCODE_I, { controls::button_t::zoom } },
+        { SDL_SCANCODE_O, { controls::button_t::dilate } } };
     static inline constexpr std::string_view version = "0.1";
     static inline constexpr std::string_view identifier =
         window::window_t::name;

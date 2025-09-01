@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
+#include <bx/math.h>
 
 #include <atomic>
 #include <string>
@@ -52,6 +53,10 @@ using applicationState_t = struct applicationState {
     bgfx::ProgramHandle shaderProgram = BGFX_INVALID_HANDLE;
     std::vector< Mesh > meshes;
     bgfx::UniformHandle s_texColor = BGFX_INVALID_HANDLE;
+
+    bx::Vec3 cameraPos = { 0.0f, 1.0f, -3.0f }; // start back a bit
+    bx::Vec3 cameraAt = { 0.0f, 1.0f, 0.0f };   // look at chessboard center
+    bx::Vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
 
     bool status = false;
 };

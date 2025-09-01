@@ -11,8 +11,8 @@ glsl_version=120
 vertex_filename='vs'
 fragment_filename='fs'
 
-vertex_filepath="$vertex_filename"'.vert'
-fragment_filepath="$fragment_filename"'.frag'
+vertex_filepath="$vertex_filename"'.sc'
+fragment_filepath="$fragment_filename"'.sc'
 vertex_compiled_filepath="$vertex_filename"'.bin'
 fragment_compiled_filepath="$fragment_filename"'.bin'
 
@@ -22,9 +22,9 @@ compile_shader() {
     type="$3"
 
     if [ ! -f "$output" ] || [[ "$input" -nt "$output" ]]; then
-        shaderc -f "$input" -o "$output" --type "$type" --platform linux --profile "$glsl_version"
-
         echo 'Making '"$output"
+
+        shaderc -f "$input" -o "$output" --type "$type" --platform linux --profile "$glsl_version" -i '/usr/local/include/bgfx/'
     fi
 }
 

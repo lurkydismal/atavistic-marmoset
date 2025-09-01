@@ -1,6 +1,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <bgfx/defines.h>
 #include <bx/math.h>
 
 #include <print>
@@ -96,11 +97,10 @@ auto applicationState_t::load() -> bool {
                     .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
                     .end();
 
-#if 0
+#if 1
                 s_texColor = bgfx::createUniform( "s_texColor",
                                                   bgfx::UniformType::Sampler );
 #endif
-                // m_timeOffset = bx::getHPCounter();
             }
 
             // Load FBX using Assimp
@@ -152,7 +152,7 @@ auto applicationState_t::load() -> bool {
                 // Clear any existing meshes
                 meshes.clear();
 
-#if 0
+#if 1
                 // helper to create bgfx texture from raw RGBA pixels
                 auto l_createBgfxTextureFromRgba =
                     [ & ]( const unsigned char* _rgba, int _w,
@@ -162,7 +162,7 @@ auto applicationState_t::load() -> bool {
                     memcpy( l_mem->data, _rgba, l_size );
                     return bgfx::createTexture2D(
                         ( uint16_t )_w, ( uint16_t )_h, false, 1,
-                        bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE, l_mem );
+                        bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_SRGB, l_mem );
                 };
 
                 // helper to create texture from aiTexture (embedded)
@@ -191,17 +191,6 @@ auto applicationState_t::load() -> bool {
                         return l_th;
                     }
 
-                    // uncompressed: mWidth = width, mHeight = height and pcData
-                    // raw RGBA
-                    if ( _at->mHeight > 0 && _at->mWidth > 0 ) {
-                        const int l_w = _at->mWidth;
-                        const int l_h = _at->mHeight;
-                        const auto* l_data =
-                            reinterpret_cast< const unsigned char* >(
-                                _at->pcData );
-                        return l_createBgfxTextureFromRgba( l_data, l_w, l_h );
-                    }
-
                     return BGFX_INVALID_HANDLE;
                 };
 #endif
@@ -228,13 +217,17 @@ auto applicationState_t::load() -> bool {
                         l_v.x = l_am->mVertices[ l_i ].x;
                         l_v.y = l_am->mVertices[ l_i ].y;
                         l_v.z = l_am->mVertices[ l_i ].z;
+#if 1
                         if ( l_am->HasTextureCoords( 0 ) ) {
                             l_v.u = l_am->mTextureCoords[ 0 ][ l_i ].x;
                             l_v.v = l_am->mTextureCoords[ 0 ][ l_i ].y;
                         } else {
+#endif
                             l_v.u = 0.0f;
                             l_v.v = 0.0f;
+#if 1
                         }
+#endif
                         l_verts.push_back( l_v );
                     }
 
@@ -290,44 +283,24 @@ auto applicationState_t::load() -> bool {
                                      AI_SUCCESS ) {
                                 std::string l_tpath = l_texPath.C_Str();
 
-                                // Embedded textures in FBX can be referenced as
-                                // "*0", "*1", etc.
-                                if ( !l_tpath.empty() && l_tpath[ 0 ] == '*' ) {
-                                    // get embedded texture index
-                                    int l_idx =
-                                        std::atoi( l_tpath.c_str() + 1 );
-                                    if ( l_idx >= 0 &&
-                                         l_idx < static_cast< int >(
-                                                     l_scene->mNumTextures ) ) {
-                                        const aiTexture* l_at =
-                                            l_scene->mTextures[ l_idx ];
-                                        l_mesh.texture =
-                                            l_createTextureFromAiTexture(
-                                                l_at );
-                                        if ( !bgfx::isValid(
-                                                 l_mesh.texture ) ) {
-                                            std::println(
-                                                "Failed to create texture from "
-                                                "embedded index {}",
-                                                l_idx );
-                                        }
-                                    }
-                                } else {
-                                    // try load from file (naive)
-                                    int l_w = 0, l_h = 0, l_comp = 0;
-                                    stbi_uc* l_data =
-                                        stbi_load( l_tpath.c_str(), &l_w, &l_h,
-                                                   &l_comp, 4 );
-                                    if ( l_data ) {
-                                        l_mesh.texture =
-                                            l_createBgfxTextureFromRgba(
-                                                l_data, l_w, l_h );
-                                        stbi_image_free( l_data );
-                                    } else {
+                                std::println( "Texture path: {}", l_tpath );
+
+                                std::println( "Loading texture from memory" );
+
+                                // get embedded texture index
+                                int l_idx = std::atoi( l_tpath.c_str() + 1 );
+                                if ( l_idx >= 0 &&
+                                     l_idx < static_cast< int >(
+                                                 l_scene->mNumTextures ) ) {
+                                    const aiTexture* l_at =
+                                        l_scene->mTextures[ l_idx ];
+                                    l_mesh.texture =
+                                        l_createTextureFromAiTexture( l_at );
+                                    if ( !bgfx::isValid( l_mesh.texture ) ) {
                                         std::println(
-                                            "Failed to load material "
-                                            "texture from disk: {}",
-                                            l_tpath );
+                                            "Failed to create texture from "
+                                            "embedded index {}",
+                                            l_idx );
                                     }
                                 }
                             }
@@ -335,7 +308,7 @@ auto applicationState_t::load() -> bool {
                     }
 #endif
 
-#if 0
+#if 1
                     // fallback: if no texture loaded, but scene has embedded
                     // textures (single texture use case)
                     if ( !bgfx::isValid( l_mesh.texture ) &&
@@ -353,7 +326,8 @@ auto applicationState_t::load() -> bool {
 
                     // final fallback white texture
                     if ( !bgfx::isValid( l_mesh.texture ) ) {
-                        const uint8_t l_white[ 4 ] = { 0xFF, 0xFF, 0xFF, 0xFF };
+                        static const uint8_t l_white[ 4 ] = { 0xFF, 0xFF, 0xFF,
+                                                              0xFF };
                         const bgfx::Memory* l_mem = bgfx::makeRef( l_white, 4 );
                         l_mesh.texture = bgfx::createTexture2D(
                             1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
