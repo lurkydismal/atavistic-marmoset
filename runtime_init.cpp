@@ -1,5 +1,6 @@
 #include <SDL3/SDL_scancode.h>
 #include <X11/Xlib.h>
+#include <bgfx/defines.h>
 
 #include "FPS.hpp"
 #include "common.hpp"
@@ -153,7 +154,8 @@ auto init( applicationState_t& _applicationState ) -> bool {
                         log::variable( l_initParameters.resolution.width );
                         log::variable( l_initParameters.resolution.height );
 
-                        l_initParameters.resolution.reset = BGFX_RESET_NONE;
+                        l_initParameters.resolution.reset =
+                            BGFX_RESET_SRGB_BACKBUFFER;
                     }
 
 #if defined( DEBUG )

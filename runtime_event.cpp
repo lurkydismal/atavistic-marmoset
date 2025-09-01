@@ -1,5 +1,6 @@
+#include <bgfx/defines.h>
+
 #include <ranges>
-#include <type_traits>
 
 #include "controls.hpp"
 #include "log.hpp"
@@ -20,7 +21,7 @@ auto onWindowResize( runtime::applicationState_t& _applicationState,
         _applicationState.width = _width;
         _applicationState.height = _height;
 
-        bgfx::reset( _width, _height );
+        bgfx::reset( _width, _height, BGFX_RESET_SRGB_BACKBUFFER );
 
         bgfx::setViewRect( 0, 0, 0, _width, _height );
 

@@ -1,4 +1,5 @@
 #include <bgfx/bgfx.h>
+#include <bgfx/defines.h>
 #include <bx/math.h>
 
 #include <array>
@@ -34,8 +35,7 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
                 static double l_t = 0.0;
                 l_t += 0.016; // ~60fps step
                 std::array< float, 16 > l_model{};
-                // bx::mtxRotateY( l_model.data(), static_cast< float >( l_t )
-                // );
+                bx::mtxRotateY( l_model.data(), static_cast< float >( l_t ) );
                 using mat4x4_t = std::array< float, 16 >;
 
 #if 1
@@ -107,6 +107,7 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
                                          // | BGFX_STATE_CULL_CCW
                                          | BGFX_STATE_DEPTH_TEST_LESS;
 
+#if 0
                 mat4x4_t l_identity{};
                 bx::mtxIdentity( l_identity.data() );
                 bgfx::setTransform( l_identity.data() );
@@ -116,6 +117,7 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
                                   _applicationState.meshes.front().texture );
                 bgfx::setState( l_state );
                 bgfx::submit( 0, _applicationState.shaderProgram );
+#endif
 
                 // submit all meshes
                 for ( const auto& l_mesh : _applicationState.meshes ) {
@@ -134,6 +136,8 @@ auto iterate( applicationState_t& _applicationState ) -> bool {
                     if ( bgfx::isValid( l_mesh.texture ) ) {
                         bgfx::setTexture( 0, _applicationState.s_texColor,
                                           l_mesh.texture );
+                    } else {
+                        std::println( "Texture invalid at draw!" );
                     }
 #endif
                     bgfx::setState( BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CCW |

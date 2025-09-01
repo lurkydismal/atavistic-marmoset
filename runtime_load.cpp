@@ -153,7 +153,48 @@ auto applicationState_t::load() -> bool {
                 meshes.clear();
 
 #if 1
+                auto l_createBgfxTextureFromRgba =
+                    [ & ]( const unsigned char* _rgba, int _w, int _h,
+                           bool _srgb = true ) -> bgfx::TextureHandle {
+                    if ( nullptr == _rgba || _w <= 0 || _h <= 0 ) {
+                        std::println(
+                            "l_createBgfxTextureFromRgba: invalid inputs {}x{}",
+                            _w, _h );
+                        return BGFX_INVALID_HANDLE;
+                    }
+
+                    const uint32_t l_size =
+                        uint32_t( _w ) * uint32_t( _h ) * 4u;
+                    const bgfx::Memory* l_mem = bgfx::alloc( l_size );
+                    memcpy( l_mem->data, _rgba, l_size );
+
+                    uint64_t flags = 0;
+                    if ( _srgb ) {
+                        flags |= BGFX_TEXTURE_SRGB;
+                    }
+                    // Keep wrap/filter defaults. If you want clamp: flags |=
+                    // BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+
+                    bgfx::TextureHandle th = bgfx::createTexture2D(
+                        ( uint16_t )_w, ( uint16_t )_h,
+                        false, // hasMips = false (safer). Turn true if
+                               // providing mips.
+                        1,     // layers
+                        bgfx::TextureFormat::RGBA8, flags, l_mem );
+
+                    if ( !bgfx::isValid( th ) ) {
+                        std::println(
+                            "bgfx::createTexture2D failed for {}x{} (srgb={})",
+                            _w, _h, _srgb );
+                    } else {
+                        std::println( "bgfx texture created {}x{} (srgb={})",
+                                      _w, _h, _srgb );
+                    }
+                    return th;
+                };
+
                 // helper to create bgfx texture from raw RGBA pixels
+#if 0
                 auto l_createBgfxTextureFromRgba =
                     [ & ]( const unsigned char* _rgba, int _w,
                            int _h ) -> bgfx::TextureHandle {
@@ -164,8 +205,71 @@ auto applicationState_t::load() -> bool {
                         ( uint16_t )_w, ( uint16_t )_h, false, 1,
                         bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_SRGB, l_mem );
                 };
+#endif
+
+                auto l_createTextureFromAiTexture =
+                    [ & ]( const aiTexture* _at ) -> bgfx::TextureHandle {
+                    if ( !_at ) {
+                        std::println( "aiTexture is null" );
+                        return BGFX_INVALID_HANDLE;
+                    }
+
+                    // Compressed PNG/JPEG (most FBX embed cases): mHeight == 0,
+                    // mWidth == byte_size
+                    if ( _at->mHeight == 0 && _at->mWidth > 0 ) {
+                        int l_w = 0, l_h = 0, l_comp = 0;
+                        const unsigned char* blob =
+                            reinterpret_cast< const unsigned char* >(
+                                _at->pcData );
+                        const int blobSize = static_cast< int >( _at->mWidth );
+
+                        stbi_uc* decoded = stbi_load_from_memory(
+                            blob, blobSize, &l_w, &l_h, &l_comp, 4 );
+                        if ( !decoded ) {
+                            std::println(
+                                "stbi_load_from_memory failed for embedded "
+                                "texture (bytes = {})",
+                                blobSize );
+                            return BGFX_INVALID_HANDLE;
+                        }
+
+                        std::println( "Decoded embedded texture: {}x{} comp={}",
+                                      l_w, l_h, l_comp );
+                        // Optional: write to disk for inspection (requires
+                        // stb_image_write) stbi_write_png("embedded_dump.png",
+                        // l_w, l_h, 4, decoded, l_w * 4);
+
+                        bgfx::TextureHandle th = l_createBgfxTextureFromRgba(
+                            decoded, l_w, l_h, true /*srgb*/ );
+                        stbi_image_free( decoded );
+                        return th;
+                    }
+
+                    // Raw aiTexel data (rare for your case). Convert aiTexel ->
+                    // RGBA
+                    if ( _at->mHeight > 0 && _at->mWidth > 0 ) {
+                        const int l_w = _at->mWidth;
+                        const int l_h = _at->mHeight;
+                        std::vector< unsigned char > l_rgba;
+                        l_rgba.resize( size_t( l_w ) * size_t( l_h ) * 4u );
+                        for ( int i = 0; i < l_w * l_h; ++i ) {
+                            l_rgba[ i * 4 + 0 ] = _at->pcData[ i ].r;
+                            l_rgba[ i * 4 + 1 ] = _at->pcData[ i ].g;
+                            l_rgba[ i * 4 + 2 ] = _at->pcData[ i ].b;
+                            l_rgba[ i * 4 + 3 ] = _at->pcData[ i ].a;
+                        }
+                        return l_createBgfxTextureFromRgba(
+                            l_rgba.data(), l_w, l_h, true /*srgb*/ );
+                    }
+
+                    std::println(
+                        "aiTexture had no usable data (mWidth={} mHeight={})",
+                        _at->mWidth, _at->mHeight );
+                    return BGFX_INVALID_HANDLE;
+                };
 
                 // helper to create texture from aiTexture (embedded)
+#if 0
                 auto l_createTextureFromAiTexture =
                     [ & ]( const aiTexture* _at ) -> bgfx::TextureHandle {
                     if ( !_at )
@@ -193,6 +297,7 @@ auto applicationState_t::load() -> bool {
 
                     return BGFX_INVALID_HANDLE;
                 };
+#endif
 #endif
 
                 // iterate all meshes
@@ -315,7 +420,9 @@ auto applicationState_t::load() -> bool {
                          l_scene->mNumTextures > 0 ) {
                         // try first embedded texture
                         const aiTexture* l_at = l_scene->mTextures[ 0 ];
+#if 0
                         l_mesh.texture = l_createTextureFromAiTexture( l_at );
+#endif
                         if ( !bgfx::isValid( l_mesh.texture ) ) {
                             std::println(
                                 "Failed to create texture from "
@@ -330,8 +437,8 @@ auto applicationState_t::load() -> bool {
                                                               0xFF };
                         const bgfx::Memory* l_mem = bgfx::makeRef( l_white, 4 );
                         l_mesh.texture = bgfx::createTexture2D(
-                            1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
-                            l_mem );
+                            1, 1, false, 1, bgfx::TextureFormat::RGBA8,
+                            BGFX_TEXTURE_SRGB, l_mem );
                     }
 
                     meshes.push_back( l_mesh );
