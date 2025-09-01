@@ -301,7 +301,8 @@ auto applicationState_t::load() -> bool {
 #endif
 
                 // iterate all meshes
-                for ( unsigned l_mi = 0; l_mi < l_scene->mNumMeshes; ++l_mi ) {
+                {
+                    unsigned l_mi = 0;
                     const aiMesh* l_am = l_scene->mMeshes[ l_mi ];
 
                     if ( !l_am->HasPositions() ) {
@@ -314,7 +315,7 @@ auto applicationState_t::load() -> bool {
                         float x, y, z;
                         float u, v;
                     };
-                    std::vector< vertex > l_verts;
+                    static std::vector< vertex > l_verts;
                     l_verts.reserve( l_am->mNumVertices );
 
                     for ( unsigned l_i = 0; l_i < l_am->mNumVertices; ++l_i ) {
@@ -337,7 +338,7 @@ auto applicationState_t::load() -> bool {
                     }
 
                     // indices
-                    std::vector< uint32_t > l_indices;
+                    static std::vector< uint32_t > l_indices;
                     l_indices.reserve( l_am->mNumFaces * 3 );
                     for ( unsigned l_f = 0; l_f < l_am->mNumFaces; ++l_f ) {
                         const aiFace& l_face = l_am->mFaces[ l_f ];
@@ -420,7 +421,7 @@ auto applicationState_t::load() -> bool {
                          l_scene->mNumTextures > 0 ) {
                         // try first embedded texture
                         const aiTexture* l_at = l_scene->mTextures[ 0 ];
-#if 0
+#if 1
                         l_mesh.texture = l_createTextureFromAiTexture( l_at );
 #endif
                         if ( !bgfx::isValid( l_mesh.texture ) ) {
