@@ -110,7 +110,6 @@ auto applicationState_t::load() -> bool {
                     modelPath,
                     aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
                         aiProcess_GenSmoothNormals |
-                        aiProcess_CalcTangentSpace |
                         aiProcess_ImproveCacheLocality | aiProcess_FlipUVs );
 
                 if ( !l_scene ) {
