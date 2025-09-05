@@ -4,15 +4,8 @@
 #include <SDL3/SDL_scancode.h>
 
 #include <cstdint>
-#include <string_view>
+#include <initializer_list>
 #include <type_traits>
-
-namespace {
-
-// Control
-constexpr std::string_view g_controlAsStringUnknown = "UNKNOWN";
-
-} // namespace
 
 namespace controls {
 
