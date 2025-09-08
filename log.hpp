@@ -25,16 +25,12 @@ constexpr std::string_view g_logErrorPrefix = "ERROR: ";
 namespace log {
 
 template < typename... Arguments >
-inline void debug( std::format_string< Arguments... > _format,
-                   Arguments&&... _arguments ) {
+inline void debug( [[maybe_unused]] std::format_string< Arguments... > _format,
+                   [[maybe_unused]] Arguments&&... _arguments ) {
 #if defined( DEBUG )
 
     std::print( g_logDebugPrefix );
     std::println( _format, std::forward< Arguments >( _arguments )... );
-
-#else
-
-    ( void )_message;
 
 #endif
 }

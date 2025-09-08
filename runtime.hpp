@@ -6,7 +6,6 @@
 
 #include <atomic>
 #include <string>
-#include <vector>
 
 #include "camera.hpp"
 #include "controls.hpp"
@@ -14,10 +13,10 @@
 
 namespace runtime {
 
-struct Mesh {
-    bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
-    bgfx::IndexBufferHandle ibh = BGFX_INVALID_HANDLE;
-    bgfx::TextureHandle texture = BGFX_INVALID_HANDLE;
+using mesh_t = struct mesh {
+    bgfx::VertexBufferHandle vertexBufferHandle = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle indexBufferHandle = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle textureHandle = BGFX_INVALID_HANDLE;
     uint32_t indexCount{};
     uint32_t vertexCount{};
 };
@@ -50,13 +49,9 @@ using applicationState_t = struct applicationState {
     std::string fragmentShaderPath;
     std::string modelPath;
 
-    bgfx::ProgramHandle shaderProgram = BGFX_INVALID_HANDLE;
-    std::vector< Mesh > meshes;
-    bgfx::UniformHandle s_texColor = BGFX_INVALID_HANDLE;
-
-    bx::Vec3 cameraPos = { 0.0f, 1.0f, -3.0f }; // start back a bit
-    bx::Vec3 cameraAt = { 0.0f, 1.0f, 0.0f };   // look at chessboard center
-    bx::Vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
+    bgfx::ProgramHandle shaderProgramHandle = BGFX_INVALID_HANDLE;
+    mesh_t mesh;
+    bgfx::UniformHandle textureColorSampler = BGFX_INVALID_HANDLE;
 
     bool status = false;
 };
