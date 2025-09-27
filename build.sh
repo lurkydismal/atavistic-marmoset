@@ -3,9 +3,9 @@ clear
 
 set -e
 
-common_flags='-march=native -std=gnu++26 -ffunction-sections -fdata-sections -fPIC -fopenmp-simd -fno-short-enums -Wall -Wextra -Wno-gcc-compat -Wno-incompatible-pointer-types-discards-qualifiers -ggdb3 -fno-rtti -fno-exceptions -fno-threadsafe-statics -fno-unwind-tables'
+common_flags='-march=native -std=gnu++26 -Wall -Wextra -Wno-gcc-compat -Wno-incompatible-pointer-types-discards-qualifiers -ggdb3 -fno-rtti -fno-exceptions -fno-threadsafe-statics -fno-unwind-tables'
 compiler_flags='-fno-ident -D DEBUG -D BX_CONFIG_DEBUG=1 -Og'
-linker_flags="-fuse-ld=mold -Wl,-O1 -Wl,--gc-sections -Wl,--no-eh-frame-hdr -rdynamic -Wl,-rpath,\$ORIGIN"
+linker_flags="-fuse-ld=mold -Wl,--gc-sections -Wl,--no-eh-frame-hdr"
 glsl_version=120
 
 vertex_filename='vs'
@@ -47,9 +47,11 @@ source_files=(
 )
 
 for source_file in "${source_files[@]}"; do
-    echo 'Making '"$source_file"
+    if [[ "$source_file" -nt "${source_file%.cpp}.o" ]]; then
+        echo 'Making '"$source_file"
 
-    bear -- ccache clang++ $common_flags $compiler_flags -c "$source_file"
+        bear -- ccache clang++ $common_flags $compiler_flags -c "$source_file"
+    fi
 done
 
 echo 'Making executable'
