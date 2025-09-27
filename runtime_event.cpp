@@ -1,5 +1,3 @@
-#include <bgfx/defines.h>
-
 #include <ranges>
 
 #include "controls.hpp"
